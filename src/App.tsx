@@ -16,10 +16,11 @@ import { auth, db, handleFirestoreError, OperationType } from "./firebase";
 import { LandingPage } from "./components/LandingPage";
 import { VideoGrid } from "./components/VideoGrid";
 import { ChatPanel } from "./components/ChatPanel";
+import { ContactsPanel } from "./components/ContactsPanel";
 import { useSignaling } from "./hooks/useSignaling";
 import { getMediaStream } from "./utils/webrtc";
 import { Message, Participant } from "./types";
-import { LogOut, Users, Video, Wifi, WifiOff, Clock, XCircle } from "lucide-react";
+import { LogOut, Users, Video, Wifi, WifiOff, Clock, XCircle, MessageSquare } from "lucide-react";
 import { AdminDashboard } from "./components/AdminDashboard";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [recentSenders, setRecentSenders] = useState<Record<string, number>>({});
+  const [rightPanelTab, setRightPanelTab] = useState<"chat" | "contacts">("chat");
 
   // Admin and Approval States
   const [isAdminView, setIsAdminView] = useState(false);
@@ -714,14 +716,49 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right Column: Dynamic Text Chat & Assistant */}
-        <div className="lg:col-span-4 min-h-[450px] lg:min-h-0">
-          <ChatPanel
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            userId={currentUser.uid}
-            roomId={roomId}
-          />
+        {/* Right Column: Dynamic Text Chat & Contacts Directory */}
+        <div className="lg:col-span-4 min-h-[450px] lg:min-h-0 flex flex-col gap-4">
+          {/* Tab Selection */}
+          <div className="bg-white border border-slate-200/80 p-1 rounded-2xl flex gap-1 shadow-sm shrink-0" dir="rtl">
+            <button
+              onClick={() => setRightPanelTab("chat")}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                rightPanelTab === "chat"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              المحادثة الفورية
+            </button>
+            <button
+              onClick={() => setRightPanelTab("contacts")}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                rightPanelTab === "contacts"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              دليل جهات الاتصال
+            </button>
+          </div>
+
+          <div className="flex-1 min-h-0">
+            {rightPanelTab === "chat" ? (
+              <ChatPanel
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                userId={currentUser.uid}
+                roomId={roomId}
+              />
+            ) : (
+              <ContactsPanel
+                currentUsername={currentUser.name}
+                currentRoomTitle={roomTitle}
+              />
+            )}
+          </div>
         </div>
       </main>
     </div>

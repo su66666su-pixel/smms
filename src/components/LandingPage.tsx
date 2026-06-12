@@ -51,6 +51,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0].class);
+  const [accountType, setAccountType] = useState<"public" | "private">("public");
 
   // Room Title for joined flows
   const [roomTitle, setRoomTitle] = useState("لقاء الويب العام");
@@ -206,7 +207,8 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
         avatarColor: selectedColor,
         status: "approved", // Fast approval for registered community members
         uid: "",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        accountType: accountType // "public" or "private"
       };
 
       await setDoc(userDocRef, newUserPayload);
@@ -499,6 +501,40 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                       placeholder="مثال: لقاء الويب العام"
                       className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-805 font-semibold transition-all"
                     />
+                  </div>
+
+                  {/* Account Privacy Choice */}
+                  <div className="flex flex-col gap-1.5 mt-1 text-right" dir="rtl">
+                    <label className="text-xs font-bold text-slate-700">خصوصية الحساب (البحث والوصول):</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAccountType("public")}
+                        className={`py-2 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          accountType === "public"
+                            ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${accountType === "public" ? "bg-indigo-600 animate-pulse" : "bg-slate-400"}`} />
+                        عام (قابل للبحث)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAccountType("private")}
+                        className={`py-2 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          accountType === "private"
+                            ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${accountType === "private" ? "bg-amber-500 animate-pulse" : "bg-slate-400"}`} />
+                        خاص (مخفي للخصوصية)
+                      </button>
+                    </div>
+                    <p className="text-3xs text-slate-450 leading-relaxed">
+                      * الحساب العام يسمح للمشتركين والمنسقين الآخرين بالبحث عنك وسحب معلومات الاتصال عبر بريدك الإلكتروني.
+                    </p>
                   </div>
 
                   {/* Color choices */}
