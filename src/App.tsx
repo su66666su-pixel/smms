@@ -58,6 +58,67 @@ export default function App() {
 
   const screenStreamRef = useRef<MediaStream | null>(null);
 
+  const prevMessagesLengthRef = useRef<number>(0);
+  const prevParticipantsRef = useRef<string[]>([]);
+
+  const playNotificationSound = (type: "message" | "join") => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      if (ctx.state === "suspended") {
+        return;
+      }
+
+      if (type === "message") {
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(880, ctx.currentTime);
+        gain1.gain.setValueAtTime(0.0, ctx.currentTime);
+        gain1.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(ctx.currentTime);
+        osc1.stop(ctx.currentTime + 0.15);
+
+        setTimeout(() => {
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.type = "sine";
+          osc2.frequency.setValueAtTime(1046.50, ctx.currentTime);
+          gain2.gain.setValueAtTime(0.0, ctx.currentTime);
+          gain2.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+          gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start(ctx.currentTime);
+          osc2.stop(ctx.currentTime + 0.18);
+        }, 85);
+      } else if (type === "join") {
+        const notes = [523.25, 659.25, 783.99];
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            gain.gain.setValueAtTime(0.0, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.22);
+          }, idx * 100);
+        });
+      }
+    } catch (e) {
+      console.warn("Web Audio chime failed:", e);
+    }
+  };
+
   // Monitor network connection status
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -317,6 +378,21 @@ export default function App() {
   useEffect(() => {
     if (!roomId) return;
 
+    // Restore cached message backup from local storage first to guarantee instant loader responsiveness
+    const cached = localStorage.getItem(`chat_history_${roomId}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setMessages(parsed);
+        prevMessagesLengthRef.current = parsed.length;
+      } catch (err) {
+        console.error("Local storage sync error:", err);
+      }
+    } else {
+      setMessages([]);
+      prevMessagesLengthRef.current = 0;
+    }
+
     // messages subcollection query
     const messagesCollectionRef = collection(db, "rooms", roomId, "messages");
     const mQuery = query(messagesCollectionRef, orderBy("createdAt", "asc"));
@@ -337,6 +413,23 @@ export default function App() {
           recipientName: d.recipientName,
         });
       });
+
+      // LocalStorage temporary safe caching for quick recovery
+      try {
+        localStorage.setItem(`chat_history_${roomId}`, JSON.stringify(msgs));
+      } catch (e) {
+        console.warn("Saving chat history to localStorage failed:", e);
+      }
+
+      // Play notification chime for new messages received (if the sender is not current user)
+      if (msgs.length > prevMessagesLengthRef.current) {
+        const lastMsg = msgs[msgs.length - 1];
+        if (lastMsg && lastMsg.senderId !== currentUser?.uid && prevMessagesLengthRef.current > 0) {
+          playNotificationSound("message");
+        }
+      }
+      prevMessagesLengthRef.current = msgs.length;
+
       setMessages(msgs);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, `rooms/${roomId}/messages`);
@@ -346,6 +439,7 @@ export default function App() {
     const participantsCollectionRef = collection(db, "rooms", roomId, "participants");
     const unsubParticipants = onSnapshot(participantsCollectionRef, (snapshot) => {
       const parts: Participant[] = [];
+      const currentUids: string[] = [];
       snapshot.forEach((snap) => {
         const d = snap.data();
         if (d.isActive) {
@@ -356,8 +450,19 @@ export default function App() {
             isActive: d.isActive,
             avatar: d.avatar,
           });
+          currentUids.push(d.uid);
         }
       });
+
+      // Play notification chime for newly entered participants
+      if (prevParticipantsRef.current.length > 0) {
+        const newlyJoined = currentUids.filter(uid => !prevParticipantsRef.current.includes(uid));
+        if (newlyJoined.length > 0 && !newlyJoined.includes(currentUser?.uid || "")) {
+          playNotificationSound("join");
+        }
+      }
+      prevParticipantsRef.current = currentUids;
+
       setParticipants(parts);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, `rooms/${roomId}/participants`);
@@ -367,7 +472,7 @@ export default function App() {
       unsubMessages();
       unsubParticipants();
     };
-  }, [roomId]);
+  }, [roomId, currentUser]);
 
   // Clean presence on window close/tab unload
   useEffect(() => {

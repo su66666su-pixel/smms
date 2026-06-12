@@ -5,6 +5,7 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  getDoc,
 } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
 import {
@@ -23,6 +24,9 @@ import {
   ShieldCheck,
   Clock,
   RefreshCw,
+  Shield,
+  MessageSquare,
+  ArrowLeft,
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -34,6 +38,9 @@ interface WebUser {
   status: "pending" | "approved" | "rejected";
   uid?: string;
   createdAt: string;
+  role?: "admin" | "moderator" | "user";
+  password?: string;
+  email?: string;
 }
 
 interface ActiveRoom {
@@ -51,47 +58,97 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
     return sessionStorage.getItem("snns_admin_logged") === "true";
   });
   const [authError, setAuthError] = useState("");
+  const [loggedInRole, setLoggedInRole] = useState(() => {
+    return sessionStorage.getItem("snns_admin_role") || "user";
+  });
 
   // Users & Rooms State
   const [users, setUsers] = useState<WebUser[]>([]);
   const [rooms, setRooms] = useState<ActiveRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Room Monitoring State
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedRoomTitle, setSelectedRoomTitle] = useState<string | null>(null);
+  const [monitoredParticipants, setMonitoredParticipants] = useState<any[]>([]);
+  const [monitoredMessages, setMonitoredMessages] = useState<any[]>([]);
+  const [isMonitoringLoading, setIsMonitoringLoading] = useState(false);
+
   // New User Form State
   const [newNickname, setNewNickname] = useState("");
   const [newStatus, setNewStatus] = useState<"pending" | "approved" | "rejected">("approved");
+  const [newRole, setNewRole] = useState<"admin" | "moderator" | "user">("user");
+  const [newPassword, setNewPassword] = useState("");
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "moderator" | "user">("all");
 
-  // Instant auto-login as they type admin credentials
-  useEffect(() => {
-    const cleanUser = username.trim();
-    if (cleanUser === "1007363904" && password === "139213") {
-      setIsLoggedIn(true);
-      sessionStorage.setItem("snns_admin_logged", "true");
-      setAuthError("");
-    }
-  }, [username, password]);
+  // Advanced inline password modifications & Broadcast system
+  const [editingNickname, setEditingNickname] = useState<string | null>(null);
+  const [editedPassword, setEditedPassword] = useState("");
+  const [adminBroadcastText, setAdminBroadcastText] = useState("");
+  const [broadcastError, setBroadcastError] = useState("");
+  const [broadcastSuccess, setBroadcastSuccess] = useState("");
+
 
   // Handle Login submission
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim() === "1007363904" && password === "139213") {
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
+    if (cleanUser === "1007363904" && cleanPass === "139213") {
       setIsLoggedIn(true);
+      setLoggedInRole("admin");
       sessionStorage.setItem("snns_admin_logged", "true");
+      sessionStorage.setItem("snns_admin_role", "admin");
+      sessionStorage.setItem("snns_admin_user", "المدير العام");
       setAuthError("");
-    } else {
-      setAuthError("اسم المستخدم أو الرقم السري غير صحيح!");
+      return;
+    }
+
+    try {
+      const userRef = doc(db, "users", cleanUser);
+      const snap = await getDoc(userRef);
+
+      if (snap.exists()) {
+        const u = snap.data();
+        const savedPass = u.password;
+        const role = u.role || "user";
+
+        if (savedPass === cleanPass) {
+          if (role === "admin" || role === "moderator") {
+            setIsLoggedIn(true);
+            setLoggedInRole(role);
+            sessionStorage.setItem("snns_admin_logged", "true");
+            sessionStorage.setItem("snns_admin_role", role);
+            sessionStorage.setItem("snns_admin_user", cleanUser);
+            setAuthError("");
+          } else {
+            setAuthError("عذراً، هذا الحساب لا يملك صلاحيات إدارية (مشرف أو مراقب).");
+          }
+        } else {
+          setAuthError("الرقم السري غير صحيح!");
+        }
+      } else {
+        setAuthError("اسم المستخدم غير مسجل في النظام!");
+      }
+    } catch (err) {
+      console.error("Admin db login error:", err);
+      setAuthError("حدث خطأ أثناء الاتصال بالخادم الرئيسي.");
     }
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setLoggedInRole("user");
     sessionStorage.removeItem("snns_admin_logged");
+    sessionStorage.removeItem("snns_admin_role");
+    sessionStorage.removeItem("snns_admin_user");
   };
 
   // Listen to Users and Rooms inside Firestore
@@ -113,6 +170,9 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
             status: d.status || "pending",
             uid: d.uid || "",
             createdAt: d.createdAt || new Date().toISOString(),
+            role: d.role || "user",
+            password: d.password || "",
+            email: d.email || "",
           });
         });
         // Sort: pending first, then latest created
@@ -158,8 +218,53 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
     };
   }, [isLoggedIn]);
 
+  // Real-time listener for the Monitored Room (Participants & Messages)
+  useEffect(() => {
+    if (!selectedRoomId) {
+      setMonitoredParticipants([]);
+      setMonitoredMessages([]);
+      return;
+    }
+
+    setIsMonitoringLoading(true);
+
+    const partsRef = collection(db, "rooms", selectedRoomId, "participants");
+    const unsubParts = onSnapshot(partsRef, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      setMonitoredParticipants(list);
+      setIsMonitoringLoading(false);
+    }, (error) => {
+      console.error("Error loading monitor participants:", error);
+    });
+
+    const msgsRef = collection(db, "rooms", selectedRoomId, "messages");
+    const unsubMsgs = onSnapshot(msgsRef, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      // Sort messages chronologically
+      list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      setMonitoredMessages(list);
+    }, (error) => {
+      console.error("Error loading monitor messages:", error);
+    });
+
+    return () => {
+      unsubParts();
+      unsubMsgs();
+    };
+  }, [selectedRoomId]);
+
   // Approve a user
   const handleApprove = async (nickname: string) => {
+    if (loggedInRole !== "admin") {
+      alert("⚠️ عذراً، لا تمتلك الصلاحية الكافية للموافقة على الأعضاء. تقتصر هذه الميزة على المشرف العام فقط.");
+      return;
+    }
     try {
       const userRef = doc(db, "users", nickname);
       await setDoc(userRef, { status: "approved" }, { merge: true });
@@ -171,6 +276,10 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
 
   // Reject a user
   const handleReject = async (nickname: string) => {
+    if (loggedInRole !== "admin") {
+      alert("⚠️ عذراً، لا تمتلك الصلاحية الكافية لرفض الأعضاء. تقتصر هذه الميزة على المشرف العام فقط.");
+      return;
+    }
     try {
       const userRef = doc(db, "users", nickname);
       await setDoc(userRef, { status: "rejected" }, { merge: true });
@@ -182,6 +291,10 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
 
   // Delete a user
   const handleDelete = async (nickname: string) => {
+    if (loggedInRole !== "admin") {
+      alert("⚠️ عذراً، حذف الأعضاء بالكامل متاح فقط للمشرف العام المشرف على كامل النظام.");
+      return;
+    }
     if (window.confirm(`هل أنت متأكد من حذف المستخدم "${nickname}" نهائياً من النظام؟`)) {
       try {
         const userRef = doc(db, "users", nickname);
@@ -193,15 +306,145 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
     }
   };
 
-  // Add user manually
+  // Promote / Demote Role of a user
+  const handleSetRole = async (nickname: string, role: "admin" | "moderator" | "user") => {
+    if (loggedInRole !== "admin") {
+      alert("⚠️ عذراً، تعديل وتغيير الصلاحيات الإدارية للأعضاء مقتصر فقط على المشرف العام.");
+      return;
+    }
+    try {
+      const userRef = doc(db, "users", nickname);
+      await setDoc(userRef, { role }, { merge: true });
+      alert(`تم تعديل صلاحية "${nickname}" بنجاح فورا.`);
+    } catch (e) {
+      console.error("Error setting user role:", e);
+      alert("فشل تعديل صلاحية المستخدم.");
+    }
+  };
+
+  // Kick participant from monitored room
+  const handleKickParticipant = async (pId: string) => {
+    if (!selectedRoomId) return;
+    if (window.confirm("هل أنت متأكد من رغبتك في طرد هذا المشارك من الغرفة؟")) {
+      try {
+        await deleteDoc(doc(db, "rooms", selectedRoomId, "participants", pId));
+        alert("تم طرد العضو من الغرفة بنجاح!");
+      } catch (e) {
+        console.error("Error kicking participant:", e);
+        alert("فشل طرد العضو.");
+      }
+    }
+  };
+
+  // Delete message inside monitored room
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!selectedRoomId) return;
+    if (window.confirm("هل أنت متأكد من رغبتك في حذف هذه الرسالة من السجل؟")) {
+      try {
+        await deleteDoc(doc(db, "rooms", selectedRoomId, "messages", msgId));
+      } catch (e) {
+        console.error("Error deleting message:", e);
+        alert("فشل حذف الرسالة.");
+      }
+    }
+  };
+
+  // Clear / Terminate full Room
+  const handleCloseRoom = async (rId: string) => {
+    if (window.confirm("⚠️ هل أنت متأكد من رغبتك في إغلاق هذه الغرفة بالكامل وطرد جميع الموجودين؟")) {
+      try {
+        await deleteDoc(doc(db, "rooms", rId));
+        if (selectedRoomId === rId) {
+          setSelectedRoomId(null);
+          setSelectedRoomTitle(null);
+        }
+        alert("تم إغلاق الغرفة وطرد المشاركين بنجاح!");
+      } catch (e) {
+        console.error("Error closing room:", e);
+        alert("فشل إغلاق الغرفة.");
+      }
+    }
+  };
+
+  // Update user's password directly from management list
+  const handleUpdatePassword = async (nickname: string, newPass: string) => {
+    const cleanPass = newPass.trim();
+    if (!cleanPass) {
+      alert("الطلب غير صالح. يجب تحديد كلمة مرور صالحة.");
+      return;
+    }
+    try {
+      const userRef = doc(db, "users", nickname);
+      await setDoc(userRef, { password: cleanPass }, { merge: true });
+      alert(`تم تحديث الرمز السري للمستشار "${nickname}" بنجاح!`);
+      setEditingNickname(null);
+      setEditedPassword("");
+    } catch (e) {
+      console.error("Error updating member password:", e);
+      alert("فشل تعديل الرمز السري.");
+    }
+  };
+
+  // Broadcast an urgent system message/warning inside a room chat
+  const handleBroadcastMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBroadcastError("");
+    setBroadcastSuccess("");
+
+    if (!selectedRoomId) {
+      setBroadcastError("الرجاء تشغيل بث واختيار غرفة صالحة أولاً.");
+      return;
+    }
+
+    const textClean = adminBroadcastText.trim();
+    if (!textClean) {
+      setBroadcastError("الرجاء كتابة محتوى الرسالة الإدارية المراد إرسالها.");
+      return;
+    }
+
+    try {
+      const messagesCollectionRef = collection(db, "rooms", selectedRoomId, "messages");
+      const randomDocId = "admin_alert_" + Date.now();
+      const payload = {
+        senderId: "admin_system",
+        senderName: "🚨 تنبيه النظام الإداري",
+        senderAvatar: "bg-rose-500 font-black text-rose-100",
+        createdAt: new Date().toISOString(),
+        text: textClean,
+        isAdminStatic: true
+      };
+      
+      await setDoc(doc(messagesCollectionRef, randomDocId), payload);
+      setAdminBroadcastText("");
+      setBroadcastSuccess("تم بث التنبيه الإداري عاجلاً في الغرفة بنجاح!");
+      setTimeout(() => setBroadcastSuccess(""), 3500);
+    } catch (err) {
+      console.error("Broadcast broadcast error:", err);
+      setBroadcastError("فشل بث وإلحاق التنبيه بقاعدة البيانات.");
+    }
+  };
+
+  // Add user manually with role and password
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
 
+    if (loggedInRole !== "admin") {
+      setFormError("⚠️ عذراً، ميزة إضافة أو تعديل وإدارة صلاحيات الأعضاء متاحة فقط للمشرف العام.");
+      return;
+    }
+
     const nameClean = newNickname.trim();
+    const passClean = newPassword.trim();
+
     if (!nameClean) {
       setFormError("الرجاء إدخال الاسم المستعار للمستخدم!");
+      return;
+    }
+
+    if (!passClean) {
+      setFormError("الرجاء تحديد كلمة المرور / الرقم السري للمستخدم الجديد للتمكن من الدخول!");
       return;
     }
 
@@ -218,9 +461,12 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
         status: newStatus,
         uid: "",
         createdAt: new Date().toISOString(),
+        role: newRole,
+        password: passClean,
       });
-      setFormSuccess(`تمت إضافة المستخدم "${nameClean}" بنجاح!`);
+      setFormSuccess(`تمت إضافة المستخدم "${nameClean}" بنجاح بصفة: ${newRole === "admin" ? "مشرف عام" : newRole === "moderator" ? "مراقب غرف" : "عضو عادي"} وبحالة: ${newStatus === "approved" ? "نشط ومفعل" : "بانتظار الموافقة"}`);
       setNewNickname("");
+      setNewPassword("");
     } catch (e) {
       console.error("Error creating user:", e);
       setFormError("حدث خطأ أثناء إضافة المستخدم.");
@@ -231,7 +477,11 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
   const filteredUsers = users.filter((u) => {
     const matchesSearch = u.nickname.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = statusFilter === "all" || u.status === statusFilter;
-    return matchesSearch && matchesFilter;
+    const matchesRole = roleFilter === "all" || 
+      (roleFilter === "admin" && u.role === "admin") ||
+      (roleFilter === "moderator" && u.role === "moderator") ||
+      (roleFilter === "user" && (u.role === "user" || !u.role));
+    return matchesSearch && matchesFilter && matchesRole;
   });
 
   const pendingCount = users.filter((u) => u.status === "pending").length;
@@ -360,6 +610,39 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
         
+        {/* Top Active Session Details Span */}
+        <div className="lg:col-span-12 bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${loggedInRole === "admin" ? "bg-purple-900/20 text-purple-400 border border-purple-500/20" : "bg-blue-900/20 text-blue-400 border border-blue-500/20"}`}>
+              <Shield className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-400">مرحباً بك مجدداً في الإدارة:</span>
+                <span className="text-sm font-black text-white">{sessionStorage.getItem("snns_admin_user") || "المدير"}</span>
+                <span className={`text-[10px] px-2.5 py-0.5 rounded-md font-bold border ${
+                  loggedInRole === "admin" 
+                    ? "bg-purple-500/10 border-purple-500/25 text-purple-400" 
+                    : "bg-blue-500/10 border-blue-500/25 text-blue-450"
+                }`}>
+                  {loggedInRole === "admin" ? "👑 مدير عام النظام" : "🛡️ مراقب غرف معتمد"}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                {loggedInRole === "admin" 
+                  ? "✓ تمتلك الصلاحية الكاملة لتفعيل طلبات التسجيل، تعيين وإلغاء المشرفين أو المراقبين، تغيير الرموز السرية، وإدارة المحادثات والبث الحي."
+                  : "🛡️ أنت مسجل كمراقب غرف. نظام التحكم النشط يتيح لك متابعة المحادثات وطرد الأجهزة الخارجة ومكافحة السبام فوراً."
+                }
+              </p>
+            </div>
+          </div>
+          {loggedInRole === "moderator" && (
+            <div className="bg-amber-500/5 border border-amber-500/10 px-3 py-2 rounded-xl text-[10px] text-amber-400/90 font-medium shrink-0">
+              ⚠️ صلاحية محدودة: عمليات تعديل الحسابات وتعيين الرموز حصرية للمدير العام.
+            </div>
+          )}
+        </div>
+
         {/* Left Side: Stats Cards and user registration forms */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           {/* Quick Stats Grid */}
@@ -416,6 +699,31 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
               </div>
 
               <div className="flex flex-col gap-1.5">
+                <label className="text-xxs font-semibold text-slate-300">الرقم السري / كلمة المرور له *</label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="حدد له رمز مرور للمصادقة..."
+                  className="w-full bg-slate-900 border border-slate-800 focus:border-blue-500 outline-none rounded-xl px-3.5 py-2.5 text-xs text-slate-200"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xxs font-semibold text-slate-300">مستوى الصلاحية الإدارية</label>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-slate-800 focus:border-blue-500 outline-none rounded-xl px-3.5 py-2.5 text-xs text-slate-200 cursor-pointer"
+                >
+                  <option value="user">عضو عادي (Regular User)</option>
+                  <option value="moderator">مراقب غرف فقط (Room Moderator)</option>
+                  <option value="admin">مشرف عام كامل النظام (Global Admin)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xxs font-semibold text-slate-300">حالة الصلاحية الممنوحة له</label>
                 <select
                   value={newStatus}
@@ -440,9 +748,12 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
 
           {/* Active Rooms Monitor */}
           <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3 border-b border-slate-800 pb-2">
-              <Video className="w-4 h-4 text-indigo-400" />
-              الغرف النشطة حالياً ({rooms.length})
+            <h3 className="text-sm font-bold text-white flex flex-col gap-1 mb-3 border-b border-slate-800 pb-2">
+              <span className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-indigo-400" />
+                الغرف النشطة حالياً ({rooms.length})
+              </span>
+              <span className="text-[10px] text-indigo-300 font-medium">*(انقر على أي غرفة لمراقبتها فوراً)*</span>
             </h3>
             
             <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto pr-1">
@@ -451,178 +762,403 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
                   لا توجد غرف بث أو اجتماعات مسجلة في الوقت الراهن.
                 </p>
               ) : (
-                rooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="p-2.5 bg-slate-900/60 border border-slate-800/50 rounded-xl flex items-center justify-between gap-2"
-                  >
-                    <div>
-                      <div className="text-xs font-bold text-slate-200">{room.title}</div>
-                      <div className="text-4xs font-mono text-slate-500 mt-1">ID: {room.id}</div>
+                rooms.map((room) => {
+                  const isSelected = selectedRoomId === room.id;
+                  return (
+                    <div
+                      key={room.id}
+                      onClick={() => {
+                        setSelectedRoomId(room.id);
+                        setSelectedRoomTitle(room.title);
+                      }}
+                      className={`p-2.5 border rounded-xl flex items-center justify-between gap-2 cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-indigo-950/50 border-indigo-500"
+                          : "bg-slate-900/60 border-slate-800/50 hover:bg-slate-800"
+                      }`}
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-200">{room.title}</div>
+                        <div className="text-4xs font-mono text-slate-500 mt-1">ID: {room.id}</div>
+                      </div>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" title="اضغط للمراقبة الحية" />
                     </div>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="متاحة" />
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Side: Primary Users Listings & Approvals */}
+        {/* Right Side: Shared panel (General Users list or Room Monitoring details) */}
         <div className="lg:col-span-8 flex flex-col bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 md:p-5 min-h-0">
           
-          {/* Header Controls */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-800">
-            <div>
-              <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-400" />
-                قائمة طلبات التسجيل والأعضاء
-              </h2>
-              <p className="text-xxs text-slate-400 mt-1">قم بتفصيل والموافقة على المستخدمين لتمكين دخولهم للقنوات المرئية</p>
-            </div>
+          {selectedRoomId ? (
+            /* ACTIVE LIVE ROOM MONITORING INTERFACE */
+            <div className="flex flex-col h-full animate-fade-in" id="active-live-room-monitor">
+              {/* Monitoring Header */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-indigo-900/40">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-3xs bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-md font-bold animate-pulse">
+                      بث حي ومباشر ومراقب
+                    </span>
+                    <h2 className="text-base font-extrabold text-white flex items-center gap-1.5 animate-pulse">
+                      <Shield className="w-5 h-5 text-indigo-400" />
+                      شاشة مراقبة غرفة: <span className="text-indigo-300">"{selectedRoomTitle}"</span>
+                    </h2>
+                  </div>
+                  <p className="text-xxs text-slate-400 mt-1.5 font-medium leading-relaxed font-sans">
+                    منصة التدخل المباشر لمراقبة وطرد المشاركون وحذف محتويات الرسائل فورا للبث المباشر.
+                  </p>
+                </div>
 
-            {/* List Type filters selector */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setStatusFilter("all")}
-                className={`px-3 py-1.5 rounded-lg text-xxs font-bold transition-all ${
-                  statusFilter === "all" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-slate-100"
-                }`}
-              >
-                الكل ({users.length})
-              </button>
-              <button
-                onClick={() => setStatusFilter("pending")}
-                className={`px-3 py-1.5 rounded-lg text-xxs font-bold transition-all relative ${
-                  statusFilter === "pending" ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" : "text-slate-400 hover:text-slate-100"
-                }`}
-              >
-                قيد الانتظار ({pendingCount})
-                {pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" />
-                )}
-              </button>
-              <button
-                onClick={() => setStatusFilter("approved")}
-                className={`px-3 py-1.5 rounded-lg text-xxs font-bold transition-all ${
-                  statusFilter === "approved" ? "bg-emerald-500/15 text-emerald-400" : "text-slate-400 hover:text-slate-100"
-                }`}
-              >
-                المقبولون ({approvedCount})
-              </button>
-            </div>
-          </div>
-
-          {/* Search Input Bar */}
-          <div className="relative mb-4">
-            <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ابحث عن اسم عضو معين..."
-              className="w-full bg-slate-900 border border-slate-800 focus:border-blue-500 outline-none rounded-xl pr-10 pl-4 py-2.5 text-xs text-slate-200 placeholder-slate-550 text-right"
-            />
-          </div>
-
-          {/* Scrollable Members List */}
-          <div className="flex-1 overflow-y-auto pr-1 min-h-[300px]">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center">
-                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
-                <p className="text-xs text-slate-400">جاري مسامحة وسحب السجلات المرئية...</p>
-              </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-800 rounded-2xl">
-                <Users className="w-8 h-8 text-slate-650 mb-3" />
-                <p className="text-xs text-slate-400">لا يوجد بيانات تطابق بحثك أو تصفيتك في السيرفر.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {filteredUsers.map((user) => (
-                  <div
-                    key={user.nickname}
-                    className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                      user.status === "pending"
-                        ? "bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/30"
-                        : user.status === "approved"
-                        ? "bg-slate-900/40 hover:bg-slate-900/80 border-slate-800/80"
-                        : "bg-red-500/5 hover:bg-red-500/10 border-red-500/20"
-                    }`}
+                <div className="flex items-center gap-2.5 self-end sm:self-auto uppercase">
+                  <button
+                    onClick={() => {
+                      setSelectedRoomId(null);
+                      setSelectedRoomTitle(null);
+                    }}
+                    className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all border border-slate-700 cursor-pointer"
                   >
-                    {/* User profile identifier */}
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2.5 rounded-xl shrink-0 ${
-                        user.status === "pending"
-                          ? "bg-amber-500/10 text-amber-400"
-                          : user.status === "approved"
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : "bg-red-500/10 text-red-400"
-                      }`}>
-                        <Users className="w-5 h-5" />
+                    <ArrowLeft className="w-4 h-4 scale-x-[-1]" />
+                    الرجوع لإدارة الأعضاء
+                  </button>
+
+                  <button
+                    onClick={() => handleCloseRoom(selectedRoomId)}
+                    className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-black px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    إغلاق وتفريغ الغرفة نهائياً
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-panels layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 flex-1 min-h-[350px]">
+                {/* Right Column: Participants list */}
+                <div className="border border-slate-850 bg-slate-900/10 rounded-2xl p-4 flex flex-col h-full">
+                  <h4 className="text-xs font-black text-indigo-300 mb-3 flex items-center gap-1.5 border-b border-slate-850 pb-2">
+                    <Users className="w-4 h-4 text-indigo-400" />
+                    الأجهزة والمشاركون داخل الغرفة حالياً ({monitoredParticipants.length})
+                  </h4>
+
+                  <div className="flex-1 overflow-y-auto space-y-2.5 pr-0.5">
+                    {isMonitoringLoading ? (
+                      <div className="flex flex-col items-center justify-center py-10">
+                        <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin mb-2" />
+                        <span className="text-3xs text-slate-500">جاري تحميل وسحب الأجهزة...</span>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white">{user.nickname}</h4>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                            user.status === "pending"
-                              ? "bg-amber-500/10 border border-amber-500/20 text-amber-500"
-                              : user.status === "approved"
-                              ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                              : "bg-red-500/10 border border-red-500/20 text-red-500"
-                          }`}>
-                            {user.status === "pending" ? "بانتظار الموافقة" : user.status === "approved" ? "نشط ومفعل" : "مرفوض"}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2.5 text-4xs text-slate-400 mt-1.5 font-mono">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-500" />
-                            طلب: {new Date(user.createdAt).toLocaleString("ar-SA", { hour12: true })}
-                          </span>
-                          {user.uid && (
-                            <span className="bg-slate-800 px-1.5 py-0.5 rounded font-bold">
-                              UID: {user.uid.substring(0, 8)}...
-                            </span>
-                          )}
-                        </div>
+                    ) : monitoredParticipants.length === 0 ? (
+                      <div className="text-center py-12 text-3xs text-slate-500 italic">
+                        لا يوجد أي جهاز مشارك نشط حالياً في الغرفة.
                       </div>
-                    </div>
-
-                    {/* Operational controls */}
-                    <div className="flex items-center gap-2 justify-end self-end md:self-auto shrink-0">
-                      {user.status !== "approved" && (
-                        <button
-                          onClick={() => handleApprove(user.nickname)}
-                          className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.8 rounded-xl transition-all shadow-sm"
+                    ) : (
+                      monitoredParticipants.map((p) => (
+                        <div
+                          key={p.id}
+                          className="p-3 bg-slate-950/40 border border-slate-850 rounded-xl flex items-center justify-between gap-2.5"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          موافقة وتفعيل
-                        </button>
-                      )}
+                          <div className="flex items-center gap-2">
+                            <div className="w-7.5 h-7.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold text-xs font-mono">
+                              {p.name ? p.name.charAt(0).toUpperCase() : "?"}
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-200">{p.name || p.id}</div>
+                              {p.joinedAt && (
+                                <div className="text-4xs text-slate-500 font-mono mt-0.5">
+                                  دخل: {new Date(p.joinedAt).toLocaleTimeString("ar-SA")}
+                                </div>
+                              )}
+                            </div>
+                          </div>
 
-                      {user.status !== "rejected" && (
-                        <button
-                          onClick={() => handleReject(user.nickname)}
-                          className="flex items-center gap-1 bg-amber-600/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 text-[11px] font-bold px-3 py-1.8 rounded-xl transition-all"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          رفض الحساب
-                        </button>
-                      )}
+                          <button
+                            onClick={() => handleKickParticipant(p.id)}
+                            className="bg-red-500/15 hover:bg-red-650 border border-red-500/30 text-red-400 hover:text-white transition-all text-4xs font-extrabold px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer"
+                          >
+                            طرد وفصل فوري 🚫
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
 
-                      <button
-                        onClick={() => handleDelete(user.nickname)}
-                        className="p-2 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 rounded-xl transition-all border border-transparent hover:border-rose-500/20"
-                        title="حذف السجل نهائيا"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {/* Left Column: Live chat stream message list */}
+                <div className="border border-slate-850 bg-slate-900/10 rounded-2xl p-4 flex flex-col h-full justify-between">
+                  <div className="flex flex-col flex-1">
+                    <h4 className="text-xs font-black text-indigo-300 mb-3 flex items-center gap-1.5 border-b border-slate-850 pb-2">
+                      <MessageSquare className="w-4 h-4 text-indigo-400" />
+                      البث الحي للرسائل المنشورة ({monitoredMessages.length})
+                    </h4>
+
+                    <div className="space-y-3 overflow-y-auto max-h-[300px] scrollbar-thin pr-0.5 flex-1 select-text">
+                      {monitoredMessages.length === 0 ? (
+                        <div className="text-center py-10 text-[10px] text-slate-500 italic">
+                          لم يتم بث أي رسالة في السجل العام للغرفة بعد.
+                        </div>
+                      ) : (
+                        monitoredMessages.map((m) => (
+                          <div
+                            key={m.id}
+                            className={`p-2.5 border rounded-xl flex flex-col gap-1.5 relative group transition-all text-right ${
+                              m.senderId === "admin_system"
+                                ? "bg-rose-500/10 border-rose-500/35"
+                                : "bg-slate-950/45 border-slate-850 hover:border-indigo-900/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-900/40">
+                              <span className={`text-[10px] font-black ${m.senderId === "admin_system" ? "text-rose-450 font-extrabold" : "text-indigo-300"}`}>
+                                {m.senderName}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {m.createdAt && (
+                                  <span className="text-[9px] text-slate-500 font-mono">{new Date(m.createdAt).toLocaleTimeString("ar-SA")}</span>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteMessage(m.id)}
+                                  className="text-red-400 hover:text-red-200 transition-all hover:bg-red-500/20 p-1 rounded-md cursor-pointer"
+                                  title="حذف الرسالة نهائياً"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="text-[11px] text-slate-200 break-words leading-relaxed">
+                              {m.text && <p>{m.text}</p>}
+                              {m.file && (
+                                <div className="mt-1 text-indigo-400 font-bold text-[10px] flex items-center gap-1">
+                                  📎 ملف مشارك: <a href={m.file.url} target="_blank" rel="noreferrer" className="underline hover:text-indigo-300">{m.file.name}</a> ({(m.file.size / 1024).toFixed(1)} KB)
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-                ))}
+
+                  {/* Dynamic Urgent Admin Warning Broadcast */}
+                  <div className="mt-4 pt-3 border-t border-slate-800/80">
+                    <form onSubmit={handleBroadcastMessage} className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-extrabold text-rose-400 flex items-center gap-1">
+                          📢 إرسال تعميم إداري عاجل في شات الغرفة:
+                        </label>
+                        {broadcastSuccess && <span className="text-[9px] text-emerald-400 font-bold animate-pulse">{broadcastSuccess}</span>}
+                        {broadcastError && <span className="text-[9px] text-red-500 font-bold">{broadcastError}</span>}
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={adminBroadcastText}
+                          onChange={(e) => setAdminBroadcastText(e.target.value)}
+                          placeholder="اكتب التوجيه أو التحذير هنا للغرفة حياً..."
+                          className="flex-1 bg-slate-950 border border-slate-800 focus:border-rose-500 outline-none rounded-xl px-3 py-2 text-[11px] text-slate-200 placeholder-slate-650 text-right"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-rose-600/20 hover:bg-rose-500/35 border border-rose-500/40 text-rose-400 hover:text-white px-3 py-2 rounded-xl text-4xs font-black transition-all cursor-pointer shrink-0"
+                        >
+                          بث التعميم 🚀
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            /* GENERAL MEMBER LISTINGS AND PENDING REGISTRATION GATES */
+            <>
+              {/* Header Controls */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-800">
+                <div>
+                  <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <Users className="w-5 h-5 text-blue-400" />
+                    قائمة طلبات التسجيل والأعضاء
+                  </h2>
+                  <p className="text-xxs text-slate-400 mt-1">قم بتفصيل والموافقة على المستخدمين لتمكين دخولهم للقنوات المرئية</p>
+                </div>
+
+                {/* List Type filters selector */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setStatusFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg text-xxs font-bold transition-all ${
+                      statusFilter === "all" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-slate-100"
+                    }`}
+                  >
+                    الكل ({users.length})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter("pending")}
+                    className={`px-3 py-1.5 rounded-lg text-xxs font-bold transition-all relative ${
+                      statusFilter === "pending" ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" : "text-slate-400 hover:text-slate-100"
+                    }`}
+                  >
+                    قيد الانتظار ({pendingCount})
+                    {pendingCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter("approved")}
+                    className={`px-3 py-1.5 rounded-lg text-xxs font-bold transition-all ${
+                      statusFilter === "approved" ? "bg-emerald-500/15 text-emerald-400" : "text-slate-400 hover:text-slate-100"
+                    }`}
+                  >
+                    المقبولون ({approvedCount})
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Input Bar */}
+              <div className="relative mb-4">
+                <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="ابحث عن اسم عضو معين..."
+                  className="w-full bg-slate-900 border border-slate-800 focus:border-blue-500 outline-none rounded-xl pr-10 pl-4 py-2.5 text-xs text-slate-200 placeholder-slate-550 text-right"
+                />
+              </div>
+
+              {/* Scrollable Members List */}
+              <div className="flex-1 overflow-y-auto pr-1 min-h-[300px]">
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center p-12 text-center">
+                    <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+                    <p className="text-xs text-slate-400">جاري مسامحة وسحب السجلات المرئية...</p>
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-800 rounded-2xl">
+                    <Users className="w-8 h-8 text-slate-650 mb-3" />
+                    <p className="text-xs text-slate-400">لا يوجد بيانات تطابق بحثك أو تصفيتك في السيرفر.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {filteredUsers.map((user) => (
+                      <div
+                        key={user.nickname}
+                        className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                          user.status === "pending"
+                            ? "bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/30"
+                            : user.status === "approved"
+                            ? "bg-slate-900/40 hover:bg-slate-900/80 border-slate-800/80"
+                            : "bg-red-500/5 hover:bg-red-500/10 border-red-500/20"
+                        }`}
+                      >
+                        {/* User profile identifier */}
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className={`p-2.5 rounded-xl shrink-0 ${
+                            user.status === "pending"
+                              ? "bg-amber-500/10 text-amber-400"
+                              : user.status === "approved"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : "bg-red-500/10 text-red-400"
+                          }`}>
+                            <Users className="w-5 h-5" />
+                          </div>
+                          <div className="space-y-1 bg-slate-950/15 p-1 rounded-xl w-full">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-bold text-white">{user.nickname}</h4>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                user.status === "pending"
+                                  ? "bg-amber-500/10 border border-amber-500/20 text-amber-500"
+                                  : user.status === "approved"
+                                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                                  : "bg-red-500/10 border border-red-500/20 text-red-500"
+                              }`}>
+                                {user.status === "pending" ? "بانتظار الموافقة" : user.status === "approved" ? "نشط ومفعل" : "مرفوض"}
+                              </span>
+
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                                user.role === "admin"
+                                  ? "bg-purple-500/10 border border-purple-500/20 text-purple-400"
+                                  : user.role === "moderator"
+                                  ? "bg-blue-500/10 border border-blue-500/20 text-blue-400"
+                                  : "bg-slate-800 border border-slate-705 text-slate-400"
+                              }`}>
+                                {user.role === "admin" ? "مشرف عام 👑" : user.role === "moderator" ? "مراقب غرف 🛡️" : "عضو عادي"}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-4xs text-slate-400 font-mono">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-500" />
+                                طلب: {new Date(user.createdAt).toLocaleString("ar-SA", { hour12: true })}
+                              </span>
+                              {user.uid && (
+                                <span className="bg-slate-850 px-1.5 py-0.5 rounded text-5xs font-bold text-slate-300">
+                                  UID: {user.uid.substring(0, 8)}...
+                                </span>
+                              )}
+                              {user.password && (
+                                <span className="bg-blue-950/40 border border-blue-900/30 text-blue-350 px-2 py-0.5 rounded font-black text-5xs">
+                                  رمز المرور: {user.password}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Set role controller dropdown */}
+                            <div className="pt-2 flex items-center gap-2">
+                              <span className="text-[10px] text-slate-400 font-bold">تعديل الصلاحية:</span>
+                              <select
+                                value={user.role || "user"}
+                                onChange={(e) => handleSetRole(user.nickname, e.target.value as any)}
+                                className="bg-slate-900 border border-slate-800 text-slate-350 text-5xs font-extrabold rounded-lg px-2 py-1 outline-none cursor-pointer focus:border-blue-500"
+                              >
+                                <option value="user">عضو عادي (Regular)</option>
+                                <option value="moderator">مراقب غرف (Moderator)</option>
+                                <option value="admin">مشرف عام (Global Admin)</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Operational controls */}
+                        <div className="flex items-center gap-2 justify-end self-end md:self-auto shrink-0">
+                          {user.status !== "approved" && (
+                            <button
+                              onClick={() => handleApprove(user.nickname)}
+                              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.8 rounded-xl transition-all shadow-sm cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              موافقة وتفعيل
+                            </button>
+                          )}
+
+                          {user.status !== "rejected" && (
+                            <button
+                              onClick={() => handleReject(user.nickname)}
+                              className="flex items-center gap-1 bg-amber-600/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 text-[11px] font-bold px-3 py-1.8 rounded-xl transition-all cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              رفض الحساب
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDelete(user.nickname)}
+                            className="p-2 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 rounded-xl transition-all border border-transparent hover:border-rose-500/20 cursor-pointer"
+                            title="حذف السجل نهائيا"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="text-center text-4xs text-slate-600 border-t border-slate-900 mt-4 pt-3 uppercase font-mono tracking-wider">
             SNNS.PRO • Secure ABAC Approval System Standard
