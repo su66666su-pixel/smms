@@ -4,7 +4,7 @@ import {
   ShieldAlert, UserPlus, Mail, Lock, LogOut, CheckCircle2, AlertCircle, ArrowRightCircle
 } from "lucide-react";
 import { motion } from "motion/react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
 
 interface LandingPageProps {
@@ -38,7 +38,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
   });
 
   // UI state
-  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "signup" | "recovery">("login");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
@@ -52,6 +52,11 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
   const [signupPassword, setSignupPassword] = useState("");
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0].class);
   const [accountType, setAccountType] = useState<"public" | "private">("public");
+
+  // Recovery States
+  const [recoveryNickname, setRecoveryNickname] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryNewPassword, setRecoveryNewPassword] = useState("");
 
   // Room Title for joined flows
   const [roomTitle, setRoomTitle] = useState("لقاء الويب العام");
@@ -231,6 +236,75 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
     }
   };
 
+  // Handle Account Password Password Recovery
+  const handleRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = recoveryNickname.trim();
+    const email = recoveryEmail.trim().toLowerCase();
+    const newPass = recoveryNewPassword.trim();
+
+    if (!cleanName || !email || !newPass) {
+      setErrorMessage("الرجاء إدخال اسم المستخدم، البريد، وكلمة المرور الجديدة.");
+      return;
+    }
+
+    setAuthLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const userDocRef = doc(db, "users", cleanName);
+      const snap = await getDoc(userDocRef);
+
+      if (!snap.exists()) {
+        setErrorMessage("عذراً، الاسم المستعار المدخل غير مسجل لدينا.");
+        setAuthLoading(false);
+        return;
+      }
+
+      const userData = snap.data();
+      const savedEmail = (userData.email || "").trim().toLowerCase();
+
+      if (!savedEmail) {
+        setErrorMessage("عذراً، هذا الحساب لم يتم ربطه ببريد إلكتروني، يرجى الاستعانة بالمسؤول.");
+        setAuthLoading(false);
+        return;
+      }
+
+      if (savedEmail !== email) {
+        setErrorMessage("عذراً، البريد الإلكتروني الذي أدخلته لا يطابق البريد المسجل لهذا الحساب.");
+        setAuthLoading(false);
+        return;
+      }
+
+      // Update password in Firestore
+      await updateDoc(userDocRef, {
+        password: newPass
+      });
+
+      setSuccessMessage("تم تعيين كلمة المرور الجديدة وتحديث حسابك بنجاح! يمكنك الآن تسجيل الدخول.");
+      
+      // Auto fill login fields for convenience
+      setLoginNickname(cleanName);
+      setLoginPassword(newPass);
+      
+      // Reset recovery form
+      setRecoveryNickname("");
+      setRecoveryEmail("");
+      setRecoveryNewPassword("");
+      
+      setTimeout(() => {
+        setActiveTab("login");
+      }, 2000);
+
+    } catch (err) {
+      console.error("Password recovery error:", err);
+      setErrorMessage("حدث خطأ أثناء محاولة استعادة الحساب. يرجى مراجعة الاتصال.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   // Log Out completely from current account session
   const handleLogoutSession = () => {
     localStorage.removeItem("snns_session");
@@ -401,6 +475,13 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
                       <span>كلمة المرور السريّة *</span>
+                      <button
+                        type="button"
+                        onClick={() => { setActiveTab("recovery"); setErrorMessage(null); }}
+                        className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline cursor-pointer font-bold"
+                      >
+                        نسيت الرقم السري؟
+                      </button>
                     </label>
                     <div className="relative">
                       <input
@@ -446,7 +527,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                     )}
                   </button>
                 </form>
-              ) : (
+              ) : activeTab === "signup" ? (
                 /* Registration Frame */
                 <form onSubmit={handleSignup} className="flex flex-col gap-3">
                   <div className="text-right">
@@ -577,6 +658,76 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                       </>
                     )}
                   </button>
+                </form>
+              ) : (
+                /* Password Recovery Frame */
+                <form onSubmit={handleRecovery} className="flex flex-col gap-4 animate-fadeIn">
+                  <div className="text-right">
+                    <h3 className="text-sm font-bold text-slate-800 mb-1">استعادة الرقم السري للحساب</h3>
+                    <p className="text-2xs text-slate-400 mb-4">أدخل الاسم والبريد الإلكتروني المسجل للحساب لتعيين كلمة مرور جديدة</p>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-700">الاسم المستعار للحساب *</label>
+                    <input
+                      type="text"
+                      required
+                      value={recoveryNickname}
+                      onChange={(e) => setRecoveryNickname(e.target.value)}
+                      placeholder="اكتب الاسم المستعار الخاص بك..."
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all text-right"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-700">البريد الإلكتروني المسجل للحساب *</label>
+                    <input
+                      type="email"
+                      required
+                      value={recoveryEmail}
+                      onChange={(e) => setRecoveryEmail(e.target.value)}
+                      placeholder="EX: your_email@example.com"
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-700">كلمة المرور الجديدة المرغوبة *</label>
+                    <input
+                      type="password"
+                      required
+                      value={recoveryNewPassword}
+                      onChange={(e) => setRecoveryNewPassword(e.target.value)}
+                      placeholder="أدخل كلمة المرور الجديدة السريّة..."
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="flex-1 bg-gradient-to-l from-indigo-650 via-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer"
+                    >
+                      {authLoading ? (
+                        <>
+                          <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                          جاري التحقق والتحديث...
+                        </>
+                      ) : (
+                        <>
+                          <span>تحديث وتركيب كلمة المرور</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab("login"); setErrorMessage(null); }}
+                      className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl transition-all border border-slate-200 text-xs cursor-pointer"
+                    >
+                      إلغاء لـ تراجع
+                    </button>
+                  </div>
                 </form>
               )}
             </div>

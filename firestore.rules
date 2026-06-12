@@ -109,6 +109,10 @@ service cloud.firestore {
       allow update, delete: if true;
     }
 
+    match /follows/{followId} {
+      allow read, write: if true;
+    }
+
     match /rooms/{roomId} {
       allow get: if true;
       allow list: if true;

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { 
   Search, Shield, ShieldAlert, CheckCircle2, AlertCircle, ToggleLeft, ToggleRight, 
-  User, Copy, Check, Send, Mail, Globe, Lock, Clock, Sparkles, Radio, MessageSquare
+  User, Copy, Check, Send, Mail, Globe, Lock, Clock, Sparkles, Radio, MessageSquare,
+  UserPlus, UserMinus, UserCheck, Users, UserX, Heart, Bell, Key
 } from "lucide-react";
-import { collection, query, where, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 interface ContactsPanelProps {
@@ -22,8 +23,8 @@ export function ContactsPanel({
   currentUserId 
 }: ContactsPanelProps) {
   
-  // Tab within the ContactsPanel: 'active' (real occupants) or 'search' (database pull)
-  const [subTab, setSubTab] = useState<"active" | "search">("active");
+  // Tab within the ContactsPanel: 'active', 'search', or 'follows'
+  const [subTab, setSubTab] = useState<"active" | "search" | "follows">("active");
 
   // Search state
   const [searchEmail, setSearchEmail] = useState("");
@@ -37,9 +38,203 @@ export function ContactsPanel({
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
 
+  // Password Change States inside app
+  const [showPassChange, setShowPassChange] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passChangeError, setPassChangeError] = useState<string | null>(null);
+  const [passChangeSuccess, setPassChangeSuccess] = useState<string | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
   // Interaction logs / Feedback
   const [copiedName, setCopiedName] = useState<string | null>(null);
   const [sentInviteTo, setSentInviteTo] = useState<string | null>(null);
+
+  // Realtime follow states
+  const [sentFollows, setSentFollows] = useState<any[]>([]); // follows where I am the sender
+  const [receivedFollows, setReceivedFollows] = useState<any[]>([]); // follows where I am the recipient
+
+  // Follow request live synchronize
+  useEffect(() => {
+    if (!currentUsername) return;
+
+    // Listen to sent follow requests (I requested)
+    const qSent = query(
+      collection(db, "follows"),
+      where("sender", "==", currentUsername)
+    );
+    const unsubSent = onSnapshot(qSent, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setSentFollows(list);
+    });
+
+    // Listen to received follow requests (Others requested)
+    const qReceived = query(
+      collection(db, "follows"),
+      where("recipient", "==", currentUsername)
+    );
+    const unsubReceived = onSnapshot(qReceived, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setReceivedFollows(list);
+    });
+
+    return () => {
+      unsubSent();
+      unsubReceived();
+    };
+  }, [currentUsername]);
+
+  // Actions
+  const handleFollowUser = async (targetNickname: string) => {
+    if (!currentUsername || !targetNickname) return;
+    const followId = `${currentUsername}_${targetNickname}`;
+    try {
+      await setDoc(doc(db, "follows", followId), {
+        sender: currentUsername,
+        recipient: targetNickname,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Error setting follow:", e);
+    }
+  };
+
+  const handleApproveFollow = async (followId: string) => {
+    try {
+      await updateDoc(doc(db, "follows", followId), {
+        status: "approved",
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Error approving follow:", e);
+    }
+  };
+
+  const handleRejectFollow = async (followId: string) => {
+    try {
+      await updateDoc(doc(db, "follows", followId), {
+        status: "rejected",
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Error rejecting follow:", e);
+    }
+  };
+
+  const handleDeleteFollow = async (followId: string) => {
+    try {
+      await deleteDoc(doc(db, "follows", followId));
+    } catch (e) {
+      console.error("Error deleting follow:", e);
+    }
+  };
+
+  const getFollowState = (targetNickname: string) => {
+    const sent = sentFollows.find((f) => f.recipient === targetNickname);
+    if (sent) {
+      return { type: "sent", status: sent.status, id: sent.id };
+    }
+    const received = receivedFollows.find((f) => f.sender === targetNickname);
+    if (received) {
+      return { type: "received", status: received.status, id: received.id };
+    }
+    return null;
+  };
+
+  const renderFollowButtonOrBadge = (targetNickname: string) => {
+    if (targetNickname === currentUsername) return null;
+
+    const follow = getFollowState(targetNickname);
+
+    if (!follow) {
+      return (
+        <button
+          onClick={() => handleFollowUser(targetNickname)}
+          className="bg-indigo-650 bg-indigo-600 hover:bg-indigo-700 text-white text-3xs py-1.5 px-3 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+        >
+          <UserPlus className="w-3 h-3" />
+          <span>متابعة</span>
+        </button>
+      );
+    }
+
+    if (follow.type === "sent") {
+      if (follow.status === "pending") {
+        return (
+          <button
+            onClick={() => handleDeleteFollow(follow.id)}
+            className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-3xs py-1.5 px-3 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+            title="إلغاء طلب المتابعة المعلق"
+          >
+            <Clock className="w-3 h-3 animate-spin text-amber-600" />
+            <span>طلب معلق</span>
+          </button>
+        );
+      }
+      if (follow.status === "approved") {
+        return (
+          <button
+            onClick={() => handleDeleteFollow(follow.id)}
+            className="bg-emerald-50 hover:bg-rose-50 border border-emerald-250 hover:border-rose-200 text-emerald-700 hover:text-rose-700 text-3xs py-1.5 px-3 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+            title="اضغط لإلغاء المتابعة"
+          >
+            <UserCheck className="w-3 h-3 text-emerald-600" />
+            <span>متابع ✓</span>
+          </button>
+        );
+      }
+      if (follow.status === "rejected") {
+        return (
+          <button
+            onClick={() => handleDeleteFollow(follow.id)}
+            className="bg-rose-50 hover:bg-rose-100 border border-rose-105 text-rose-650 text-3xs py-1.5 px-3 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+            title="تم رفض الطلب. اضغط لإعادة المحاولة"
+          >
+            <UserX className="w-3 h-3" />
+            <span>طلب مرفوض</span>
+          </button>
+        );
+      }
+    }
+
+    if (follow.type === "received") {
+      if (follow.status === "pending") {
+        return (
+          <div className="flex gap-1 shrink-0">
+            <button
+              onClick={() => handleApproveFollow(follow.id)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-3xs py-1.5 px-2.5 rounded-lg font-bold transition-all cursor-pointer"
+            >
+              قبول
+            </button>
+            <button
+              onClick={() => handleRejectFollow(follow.id)}
+              className="bg-rose-50 hover:bg-rose-100 border border-rose-150 text-rose-650 text-3xs py-1.5 px-2 rounded-lg font-bold transition-all cursor-pointer"
+            >
+              رفض
+            </button>
+          </div>
+        );
+      }
+      if (follow.status === "approved") {
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 text-3xs rounded-lg font-bold shrink-0">
+            <Users className="w-3 h-3" /> يتابعك
+          </span>
+        );
+      }
+    }
+
+    return null;
+  };
 
   // Fetch current user settings on mount
   useEffect(() => {
@@ -83,6 +278,67 @@ export function ContactsPanel({
       console.error("Error updating privacy:", err);
     } finally {
       setIsUpdatingSettings(false);
+    }
+  };
+
+  // Handle Password Change inside the active session
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUsername) return;
+    
+    const cleanOld = oldPassword.trim();
+    const cleanNew = newPassword.trim();
+    
+    if (!cleanOld || !cleanNew) {
+      setPassChangeError("الرجاء إدخال كلمة المرور الحالية والجديدة.");
+      return;
+    }
+    
+    setIsUpdatingPassword(true);
+    setPassChangeError(null);
+    setPassChangeSuccess(null);
+    
+    try {
+      const userDocRef = doc(db, "users", currentUsername);
+      const snap = await getDoc(userDocRef);
+      
+      if (!snap.exists()) {
+        setPassChangeError("عذراً، لم نتمكن من العثور على الحساب الخاص بك.");
+        setIsUpdatingPassword(false);
+        return;
+      }
+      
+      const userData = snap.data();
+      const savedPassword = userData.password;
+      
+      if (savedPassword && savedPassword !== cleanOld) {
+        setPassChangeError("كلمة المرور الحالية المدخلة غير صحيحة.");
+        setIsUpdatingPassword(false);
+        return;
+      }
+      
+      // Update password in firestore
+      await updateDoc(userDocRef, {
+        password: cleanNew
+      });
+      
+      // Update local storage session if exists
+      const savedSession = localStorage.getItem("snns_session");
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        parsed.password = cleanNew;
+        localStorage.setItem("snns_session", JSON.stringify(parsed));
+      }
+      
+      setPassChangeSuccess("تم تغيير كلمة المرور وتحديث الحساب بنجاح!");
+      setOldPassword("");
+      setNewPassword("");
+      setTimeout(() => setPassChangeSuccess(null), 4000);
+    } catch (err) {
+      console.error("Error updating password:", err);
+      setPassChangeError("حدث خطأ أثناء الاتصال بالخادم.");
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -175,30 +431,47 @@ export function ContactsPanel({
       </div>
 
       {/* 2. Contacts Segment Tab Switches */}
-      <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl mb-3 shrink-0">
+      <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl mb-3 shrink-0">
         <button
           type="button"
           onClick={() => setSubTab("active")}
-          className={`py-1.5 px-2 rounded-lg text-2xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+          className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
             subTab === "active"
-              ? "bg-white text-slate-800 shadow-xs"
+              ? "bg-white text-slate-805 shadow-xs"
               : "text-slate-500 hover:text-slate-750"
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-          المتواجدون فعلياً ({participants.length})
+          <Sparkles className="w-3 h-3 text-indigo-500" />
+          <span>النشطون ({participants.length})</span>
         </button>
         <button
           type="button"
           onClick={() => setSubTab("search")}
-          className={`py-1.5 px-2 rounded-lg text-2xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+          className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
             subTab === "search"
-              ? "bg-white text-slate-800 shadow-xs"
+              ? "bg-white text-slate-805 shadow-xs"
               : "text-slate-500 hover:text-slate-750"
           }`}
         >
-          <Search className="w-3.5 h-3.5 text-slate-500" />
-          البحث وسحب العضويات
+          <Search className="w-3 h-3 text-slate-500" />
+          <span>البحث</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("follows")}
+          className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 cursor-pointer relative ${
+            subTab === "follows"
+              ? "bg-white text-slate-805 shadow-xs"
+              : "text-slate-500 hover:text-slate-750"
+          }`}
+        >
+          <Users className="w-3 h-3 text-emerald-500" />
+          <span>المتابعة</span>
+          {receivedFollows.filter(f => f.status === "pending").length > 0 && (
+            <span className="absolute -top-1 -left-1 bg-rose-500 text-white font-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center animate-bounce scale-90">
+              {receivedFollows.filter(f => f.status === "pending").length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -268,12 +541,13 @@ export function ContactsPanel({
                       </div>
 
                       {/* Right: Copy Invite / Quick Action */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!isMe && renderFollowButtonOrBadge(part.name)}
                         {!isMe && (
                           <button
                             onClick={() => handleCopyInvite(part.name)}
                             title="نسخ رابط دعوة مخصص له"
-                            className="p-1 px-2 rounded-lg border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-200 text-slate-500 hover:text-indigo-600 transition-all text-3xs font-bold flex items-center gap-1 cursor-pointer"
+                            className="p-1 px-2 rounded-lg border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-200 text-slate-500 hover:text-indigo-600 transition-all text-3xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
                           >
                             {copiedName === part.name ? (
                               <>
@@ -365,6 +639,82 @@ export function ContactsPanel({
               )}
             </div>
 
+            {/* Self password change controller card */}
+            <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 text-right">
+              <button
+                type="button"
+                onClick={() => setShowPassChange(!showPassChange)}
+                className="w-full flex items-center justify-between text-2xs font-extrabold text-slate-705 hover:text-slate-900 cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg">
+                    <Key className="w-3.5 h-3.5" />
+                  </div>
+                  <span>تغيير الرقم السري للحساب</span>
+                </div>
+                <span className="text-3xs font-bold text-blue-600">
+                  {showPassChange ? "إغلاق ▲" : "تعديل الرقم السري ⚙"}
+                </span>
+              </button>
+
+              {showPassChange && (
+                <form onSubmit={handleChangePassword} className="mt-3 space-y-2.5 pt-2.5 border-t border-slate-205 animate-fadeIn">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-500">الرقم السري الحالي *</label>
+                    <input
+                      type="password"
+                      required
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      placeholder="أدخل الرقم السري الحالي للحماية..."
+                      className="w-full bg-white border border-slate-205 focus:bg-white outline-none rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-500">الرقم السري الجديد المرغوب *</label>
+                    <input
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="أدخل الرقم السري الجديد الخاص بك..."
+                      className="w-full bg-white border border-slate-205 focus:bg-white outline-none rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 font-mono text-right"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isUpdatingPassword}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white text-3xs font-extrabold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none"
+                  >
+                    {isUpdatingPassword ? (
+                      <span className="w-3.5 h-3.5 rounded-full border border-white border-t-transparent animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>تأكيد وحفظ التغيير</span>
+                      </>
+                    )}
+                  </button>
+
+                  {passChangeError && (
+                    <div className="text-[10px] font-bold text-rose-600 bg-rose-550/10 border border-rose-200 p-1.5 rounded-lg flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{passChangeError}</span>
+                    </div>
+                  )}
+
+                  {passChangeSuccess && (
+                    <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 p-1.5 rounded-lg flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>{passChangeSuccess}</span>
+                    </div>
+                  )}
+                </form>
+              )}
+            </div>
+
             {/* Email Contact Search Input */}
             <form onSubmit={handleSearchContacts} className="mt-1">
               <div className="flex gap-2">
@@ -442,7 +792,7 @@ export function ContactsPanel({
                         </div>
 
                         {/* Actions for searched */}
-                        <div className="mt-2.5 flex gap-1.5">
+                        <div className="mt-2.5 flex gap-1.5 items-center">
                           {isPrivate ? (
                             <div className="w-full text-center text-3xs text-slate-400 bg-slate-105 border border-slate-200 p-2 rounded-lg flex items-center justify-center gap-1.5 leading-relaxed">
                               <ShieldAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -450,6 +800,7 @@ export function ContactsPanel({
                             </div>
                           ) : (
                             <>
+                              {renderFollowButtonOrBadge(contact.nickname)}
                               <button
                                 type="button"
                                 onClick={() => handleCopyInvite(contact.nickname)}
@@ -490,6 +841,139 @@ export function ContactsPanel({
                   <p className="text-3xs text-slate-455 mt-0.5 leading-relaxed max-w-[180px]">
                     أدخل البريد الإلكتروني وسنقوم بسحب العضويات المسجلة والتحقق من حالة خصوصيتهم.
                   </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SUBTAB: FOLLOWS (Advanced follow request panel and networks) */}
+        {subTab === "follows" && (
+          <div className="space-y-4">
+            {/* 1. Incoming Requests */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5" dir="rtl">
+                <span className="text-3xs font-extrabold text-slate-500 uppercase">طلبات المتابعة الواردة ({receivedFollows.filter((f) => f.status === "pending").length})</span>
+                <span className="text-3xs px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded font-bold">بانتظار موافقتك</span>
+              </div>
+              {receivedFollows.filter((f) => f.status === "pending").length === 0 ? (
+                <p className="text-3xs text-slate-400 py-3.5 italic text-center">لا توجد طلبات متابعة معلقة واردة.</p>
+              ) : (
+                <div className="space-y-2">
+                  {receivedFollows
+                    .filter((f) => f.status === "pending")
+                    .map((req) => (
+                      <div
+                        key={req.id}
+                        className="bg-amber-50/40 border border-amber-100 p-2.5 rounded-xl flex items-center justify-between text-right"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-amber-100 border border-amber-200 text-amber-700 font-extrabold text-xs rounded-lg flex items-center justify-center">
+                            {req.sender.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-2xs font-extrabold text-slate-800">{req.sender}</div>
+                            <p className="text-[10px] text-slate-450 mt-0.5">يود متابعة حسابك والوصول للمبثوث</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-1.5 animate-pulse-subtle">
+                          <button
+                            onClick={() => handleApproveFollow(req.id)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-3xs rounded-md transition-all cursor-pointer shadow-xs"
+                          >
+                            موافقة
+                          </button>
+                          <button
+                            onClick={() => handleRejectFollow(req.id)}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-600 font-extrabold text-3xs rounded-md transition-all cursor-pointer"
+                          >
+                            رفض
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. List of approved following */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5" dir="rtl">
+                <span className="text-3xs font-extrabold text-slate-500 uppercase">قائمة المتابَعين ({sentFollows.filter((f) => f.status === "approved").length})</span>
+                <span className="text-3xs text-indigo-600 font-bold">تتابعهم</span>
+              </div>
+              {sentFollows.filter((f) => f.status === "approved").length === 0 ? (
+                <p className="text-3xs text-slate-400 py-3.5 italic text-center">أنت لا تتابع أي مستخدم حالياً.</p>
+              ) : (
+                <div className="space-y-2">
+                  {sentFollows
+                    .filter((f) => f.status === "approved")
+                    .map((fol) => (
+                      <div
+                        key={fol.id}
+                        className="bg-slate-50 border border-slate-150 p-2.5 rounded-xl flex items-center justify-between text-right"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-indigo-50 border border-indigo-150 text-indigo-600 font-bold text-xs rounded-lg flex items-center justify-center">
+                            {fol.recipient.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-2xs font-extrabold text-slate-800">{fol.recipient}</div>
+                            <p className="text-[10px] text-emerald-600 font-bold mt-0.5">✓ تم قبول الطلب</p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteFollow(fol.id)}
+                          className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-red-600 hover:border-red-100 text-3xs font-bold rounded-md transition-all cursor-pointer"
+                        >
+                          إلغاء المتابعة
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3. List of approved followers */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5" dir="rtl">
+                <span className="text-3xs font-extrabold text-slate-500 uppercase">المتابِعون لك ({receivedFollows.filter((f) => f.status === "approved").length})</span>
+                <span className="text-3xs text-indigo-600 font-bold">يتابعونك</span>
+              </div>
+              {receivedFollows.filter((f) => f.status === "approved").length === 0 ? (
+                <p className="text-3xs text-slate-400 py-3.5 italic text-center">لا يوجد أي متابعون لحسابك حتى الآن.</p>
+              ) : (
+                <div className="space-y-2">
+                  {receivedFollows
+                    .filter((f) => f.status === "approved")
+                    .map((fol) => (
+                      <div
+                        key={fol.id}
+                        className="bg-slate-50 border border-slate-150 p-2.5 rounded-xl flex items-center justify-between text-right"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-emerald-50 border border-emerald-150 text-emerald-600 font-bold text-xs rounded-lg flex items-center justify-center">
+                            {fol.sender.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-2xs font-extrabold text-slate-800">{fol.sender}</div>
+                            <p className="text-[10px] text-indigo-600 font-bold mt-0.5">يتابع ملفك الآن</p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteFollow(fol.id)}
+                          className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 text-3xs font-bold rounded-md transition-all cursor-pointer"
+                        >
+                          إزالة المتابع
+                        </button>
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
