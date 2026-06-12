@@ -5,7 +5,7 @@ import {
   UserPlus, UserMinus, UserCheck, Users, UserX, Heart, Bell, Key
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, handleFirestoreError, OperationType } from "../firebase";
 import { syncUserToSupabase, syncFollowToSupabase, deleteFollowFromSupabase } from "../supabase";
 
 interface ContactsPanelProps {
@@ -76,6 +76,8 @@ export function ContactsPanel({
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
       setSentFollows(list);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "follows");
     });
 
     // Listen to received follow requests (Others requested)
@@ -89,6 +91,8 @@ export function ContactsPanel({
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
       setReceivedFollows(list);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "follows");
     });
 
     return () => {
@@ -113,6 +117,7 @@ export function ContactsPanel({
       await syncFollowToSupabase(followId, followPayload);
     } catch (e) {
       console.error("Error setting follow:", e);
+      handleFirestoreError(e, OperationType.WRITE, `follows/${followId}`);
     }
   };
 
@@ -128,6 +133,7 @@ export function ContactsPanel({
       }
     } catch (e) {
       console.error("Error approving follow:", e);
+      handleFirestoreError(e, OperationType.WRITE, `follows/${followId}`);
     }
   };
 
@@ -143,6 +149,7 @@ export function ContactsPanel({
       }
     } catch (e) {
       console.error("Error rejecting follow:", e);
+      handleFirestoreError(e, OperationType.WRITE, `follows/${followId}`);
     }
   };
 
@@ -152,6 +159,7 @@ export function ContactsPanel({
       await deleteFollowFromSupabase(followId);
     } catch (e) {
       console.error("Error deleting follow:", e);
+      handleFirestoreError(e, OperationType.DELETE, `follows/${followId}`);
     }
   };
 

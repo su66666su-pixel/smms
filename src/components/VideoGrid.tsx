@@ -34,6 +34,7 @@ interface VideoGridProps {
   roomTitle: string;
   t: (key: string, replacements?: Record<string, string | number>) => string;
   lang: string;
+  isLocalMock: boolean;
 }
 
 export function VideoGrid({
@@ -54,6 +55,7 @@ export function VideoGrid({
   roomTitle,
   t,
   lang,
+  isLocalMock,
 }: VideoGridProps) {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -113,6 +115,22 @@ export function VideoGrid({
           )}
         </button>
       </div>
+
+      {isLocalMock && (
+        <div className={`bg-amber-50 border border-amber-200/80 p-4 rounded-2xl flex items-start gap-3 shadow-xs text-xs text-amber-900 leading-relaxed ${isRtl ? "flex-row-reverse text-right" : "flex-row text-left"}`}>
+          <span className="text-xl shrink-0 mt-0.5">💡</span>
+          <div className="flex-1">
+            <p className="font-black text-amber-950 text-sm">
+              {lang === "ar" ? "أنت تستخدم الكاميرا الافتراضية (محاكاة)" : "You are using the Simulator Camera"}
+            </p>
+            <p className="mt-1 text-amber-800 text-xs font-semibold leading-relaxed">
+              {lang === "ar"
+                ? "بسبب قيود الأمان لمتصفح الويب عندما يعمل التطبيق داخل المعاينة السريعة (iframe)، يتم تفعيل المحاكاة تلقائياً. لكي يراك الآخرون ويسمعوك حقيقياً: يرجى فتح التطبيق في نافذة مستقلة عبر الضغط على 'فتح في نافذة جديدة' (أعلى يسار الصفحة) ثم السماح للمتصفح بالوصول لكاميرا جهازك."
+                : "Due to strict browser permissions inside the platform's preview iframe, a high-quality video simulator is loaded automatically. To transmit real video: click 'Open in new tab' at the top left of the screen, allow browser camera and microphone permissions when prompted, and you will be instantly visible to others!"}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Video Camera Workspace */}
       <div className="flex-1 min-h-[350px] relative grid grid-cols-1 md:grid-cols-2 gap-4">

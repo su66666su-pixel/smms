@@ -286,13 +286,16 @@ export default function App() {
 
       // Create Room node if it doesn't exist
       const roomDocRef = doc(db, "rooms", safeRoomId);
-      const roomPayload = {
-        title: title,
-        hostId: uid,
-        createdAt: new Date().toISOString(),
-      };
-      await setDoc(roomDocRef, roomPayload, { merge: true });
-      await syncRoomToSupabase(safeRoomId, roomPayload);
+      const roomSnap = await getDoc(roomDocRef);
+      if (!roomSnap.exists()) {
+        const roomPayload = {
+          title: title,
+          hostId: uid,
+          createdAt: new Date().toISOString(),
+        };
+        await setDoc(roomDocRef, roomPayload);
+        await syncRoomToSupabase(safeRoomId, roomPayload);
+      }
 
       // Grab local camera or emulator media stream
       const media = await getMediaStream(name, { video: true, audio: true });
@@ -828,6 +831,7 @@ export default function App() {
               roomTitle={roomTitle}
               t={t}
               lang={lang}
+              isLocalMock={isLocalMock}
             />
           </div>
 

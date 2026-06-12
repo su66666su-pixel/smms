@@ -4,7 +4,7 @@ import {
   Trash2, X, Lock, MessageSquare, Users, ChevronLeft, Search, Check, AlertCircle, Clock
 } from "lucide-react";
 import { collection, addDoc, query, where, onSnapshot, getDocs, doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, handleFirestoreError, OperationType } from "../firebase";
 import { processFileForUpload, downloadBase64File } from "../utils/compressor";
 import { syncMessageToSupabase } from "../supabase";
 
@@ -43,18 +43,19 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
       where("participants", "array-contains", currentUsername)
     );
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const list: any[] = [];
-      snapshot.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...docSnap.data() });
-      });
-
-      // Sort by creation time locally (prevents composite index requirements)
-      list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      setAllDmMessages(list);
-    }, (error) => {
-      console.error("Error loading direct messages: ", error);
-    });
+     const unsub = onSnapshot(q, (snapshot) => {
+       const list: any[] = [];
+       snapshot.forEach((docSnap) => {
+         list.push({ id: docSnap.id, ...docSnap.data() });
+       });
+ 
+       // Sort by creation time locally (prevents composite index requirements)
+       list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+       setAllDmMessages(list);
+     }, (error) => {
+       console.error("Error loading direct messages: ", error);
+       handleFirestoreError(error, OperationType.LIST, "direct_messages");
+     });
 
     return () => unsub();
   }, [currentUsername]);

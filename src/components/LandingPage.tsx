@@ -77,6 +77,9 @@ export function LandingPage({
   // List of all active/public rooms
   const [allRooms, setAllRooms] = useState<any[]>([]);
 
+  // Room workflow: either join an existing room or create a brand new one
+  const [roomFlow, setRoomFlow] = useState<"join" | "create">("join");
+
   useEffect(() => {
     if (!sessionUser) return;
     const q = query(collection(db, "rooms"), orderBy("createdAt", "desc"), limit(20));
@@ -88,6 +91,7 @@ export function LandingPage({
       setAllRooms(list);
     }, (error) => {
       console.error("Error fetching rooms: ", error);
+      handleFirestoreError(error, OperationType.LIST, "rooms");
     });
     return () => unsub();
   }, [sessionUser]);
@@ -814,87 +818,163 @@ export function LandingPage({
                 </button>
               </div>
 
-              {/* Room Chooser Frame */}
-              <form onSubmit={handleJoinOrCreate} className="flex flex-col gap-4">
-                <div className={`${isRtl ? "text-right" : "text-left"}`}>
-                  <h3 className="text-xs font-extrabold text-slate-700 mb-1.5 flex items-center gap-1">
-                    <Video className="w-4 h-4 text-blue-500" />
-                    {t("roomLabel")}
-                  </h3>
-                  <input
-                    type="text"
-                    required
-                    value={roomTitle}
-                    onChange={(e) => setRoomTitle(e.target.value)}
-                    placeholder={t("roomPlaceholder")}
-                    className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3.5 text-sm text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
-                  />
-                  
-                  {/* Active Rooms list directory */}
-                  <div className="mt-4 border-t border-slate-100 pt-3 flex flex-col gap-2.5">
-                    <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
-                      <span className="text-3xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-blue-500" />
-                        {lang === "ar" ? "الغرف المتاحة حالياً" : "Active Public Rooms"} ({allRooms.length})
-                      </span>
-                      <span className="text-[9.5px] text-blue-650 font-bold">
-                        {lang === "ar" ? "اختر للدخول السريع" : "Click to select"}
-                      </span>
-                    </div>
-
-                    {allRooms.length === 0 ? (
-                      <div className="p-3.5 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                        <p className="text-[10px] text-slate-400 italic">
-                          {lang === "ar" ? "لا توجد غرف عامة نشطة حالياً. اكتب اسماً للأعلى وأنشئ غرفتك الخاصة!" : "No active public rooms discovered. Type above to create yours!"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2 max-h-[130px] overflow-y-auto scrollbar-thin pr-0.5">
-                        {allRooms.map((room) => (
-                          <button
-                            key={room.id}
-                            type="button"
-                            onClick={() => {
-                              setRoomTitle(room.title);
-                            }}
-                            className={`flex flex-col items-start gap-0.5 p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-xl transition-all text-left w-full cursor-pointer group`}
-                          >
-                            <span className="text-xs font-bold text-slate-800 truncate w-full">
-                              🚪 {room.title}
-                            </span>
-                            <span className="text-[9px] text-slate-450 font-mono">
-                              ID: {room.id.substring(0, 10)}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <p className="text-3xs text-slate-450 leading-relaxed mt-2.5 text-justify">
-                    * {lang === "ar" ? "ملاحظة: للدخول مع زملائك، يرجى كتابة اسم الغرفة بدقة كاملة. سيتم توجيهك تلقائياً وبأمان." : "Note: To enter with your team, please write the room title accurately. You will be directed securely."}
-                  </p>
+              {/* Room Chooser Frame with join vs create switcher */}
+              <div className="flex flex-col gap-4">
+                {/* Modern Switcher Bar */}
+                <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 shrink-0 border border-slate-205">
+                  <button
+                    type="button"
+                    onClick={() => setRoomFlow("join")}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-2xs md:text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      roomFlow === "join"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    {lang === "ar" ? "دخول غرفة نشطة" : "Join Active Room"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRoomFlow("create")}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-2xs md:text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      roomFlow === "create"
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {lang === "ar" ? "تأسيس وإنشاء غرفة" : "Create New Room"}
+                  </button>
                 </div>
 
-                <button
-                  id="join_room_btn"
-                  type="submit"
-                  disabled={isLoading || !roomTitle.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer"
-                >
-                  {isLoading ? (
-                    <>
-                      <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      {lang === "ar" ? "جاري الاتصال والتحويل لغرفة البث..." : "Connecting and opening live room..."}
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRightCircle className="w-4 h-4" />
-                      {lang === "ar" ? `الاتصال ودخول الغرفة المرئية ("${roomTitle}")` : `Connect & Enter Video Room ("${roomTitle}")`}
-                    </>
-                  )}
-                </button>
-              </form>
+                <form onSubmit={handleJoinOrCreate} className="flex flex-col gap-4">
+                  <div className={`${isRtl ? "text-right" : "text-left"}`}>
+                    <h3 className="text-xs font-extrabold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Video className="w-4 h-4 text-blue-500" />
+                      {roomFlow === "join" 
+                        ? t("roomLabel") 
+                        : (lang === "ar" ? "اسم الغرفة الجديدة المراد إنشاؤها وتأسيسها *" : "New Room Name to Setup *")}
+                    </h3>
+                    <input
+                      type="text"
+                      required
+                      value={roomTitle}
+                      onChange={(e) => setRoomTitle(e.target.value)}
+                      placeholder={t("roomPlaceholder")}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3.5 text-sm text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
+                    />
+                    
+                    {roomFlow === "join" ? (
+                      /* Active Rooms list directory for join workflow */
+                      <div className="mt-4 border-t border-slate-100 pt-3 flex flex-col gap-2.5">
+                        <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
+                          <span className="text-3xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-blue-500" />
+                            {lang === "ar" ? "الغرف المتاحة حالياً" : "Active Public Rooms"} ({allRooms.length})
+                          </span>
+                          <span className="text-[9.5px] text-blue-650 font-bold">
+                            {lang === "ar" ? "اختر للدخول السريع" : "Click to select"}
+                          </span>
+                        </div>
+
+                        {allRooms.length === 0 ? (
+                          <div className="p-3.5 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                            <p className="text-[10px] text-slate-400 italic">
+                              {lang === "ar" ? "لا توجد غرف عامة نشطة حالياً. اكتب اسماً للأعلى وأنشئ غرفتك الخاصة!" : "No active public rooms discovered. Type above to create yours!"}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2 max-h-[130px] overflow-y-auto scrollbar-thin pr-0.5">
+                            {allRooms.map((room) => (
+                              <button
+                                key={room.id}
+                                type="button"
+                                onClick={() => {
+                                  setRoomTitle(room.title);
+                                }}
+                                className={`flex flex-col items-start gap-0.5 p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-xl transition-all text-left w-full cursor-pointer group`}
+                              >
+                                <span className="text-xs font-bold text-slate-805 truncate w-full">
+                                  🚪 {room.title}
+                                </span>
+                                <span className="text-[9px] text-slate-450 font-mono">
+                                  ID: {room.id.substring(0, 10)}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Room availability feedback for creation workflow */
+                      <div className="mt-2.5">
+                        {!roomTitle.trim() ? (
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 italic leading-relaxed">
+                            {lang === "ar"
+                              ? "اكتب اسماً فريداً ومميزاً للغرفة بالأعلى لتأسيسها والبدء في بث مكالمتك ومشاركتها."
+                              : "Type a unique name above to start establishing your customized video room."}
+                          </div>
+                        ) : allRooms.some(r => r.id === roomTitle.trim().toLowerCase().replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g, "-")) ? (
+                          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 leading-relaxed font-semibold flex items-center gap-2">
+                            <span>⚠️</span>
+                            <span>
+                              {lang === "ar"
+                                ? "تنبيه: توجد غُرفة نشطة بهذا الاسم حالياً! يمكنك الانضمام إليها من تبويب 'دخول غرفة نشطة'."
+                                : "Note: Active room with this name exists! You can join it using the 'Join Active Room' tab."}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-150 text-[11px] text-emerald-800 leading-relaxed font-semibold flex items-center gap-2">
+                            <span className="text-sm">✨</span>
+                            <span>
+                              {lang === "ar"
+                                ? "رائع! اسم الغرفة متاح للبناء الفوري والآمن. سيتم تعيينك المالك والمسؤول الأساسي."
+                                : "Excellent! This room title is available. You will be registered as the root host."}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-3xs text-slate-450 leading-relaxed mt-2.5 text-justify">
+                      * {lang === "ar" ? "ملاحظة: للدخول مع زملائك، يرجى كتابة اسم الغرفة بدقة كاملة. سيتم توجيهك تلقائياً وبأمان." : "Note: To enter with your team, please write the room title accurately. You will be directed securely."}
+                    </p>
+                  </div>
+
+                  <button
+                    id="join_room_btn"
+                    type="submit"
+                    disabled={isLoading || !roomTitle.trim() || (roomFlow === "create" && allRooms.some(r => r.id === roomTitle.trim().toLowerCase().replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g, "-")))}
+                    className={`w-full text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer ${
+                      roomFlow === "create" 
+                        ? "bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed" 
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                  >
+                    {isLoading ? (
+                      <>
+                        <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        {lang === "ar" ? "جاري الاتصال والتحويل لغرفة البث..." : "Connecting and opening live room..."}
+                      </>
+                    ) : (
+                      <>
+                        {roomFlow === "create" ? (
+                          <>
+                            <Sparkles className="w-4 h-4 font-black text-white" />
+                            {lang === "ar" ? `تأسيس وإطلاق الغرفة الجديدة ("${roomTitle}")` : `Establish & Launch New Room ("${roomTitle}")`}
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRightCircle className="w-4 h-4 font-black" />
+                            {lang === "ar" ? `الاتصال ودخول الغرفة المرئية ("${roomTitle}")` : `Connect & Enter Video Room ("${roomTitle}")`}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>
