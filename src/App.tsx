@@ -17,10 +17,11 @@ import { LandingPage } from "./components/LandingPage";
 import { VideoGrid } from "./components/VideoGrid";
 import { ChatPanel } from "./components/ChatPanel";
 import { ContactsPanel } from "./components/ContactsPanel";
+import { DMsPanel } from "./components/DMsPanel";
 import { useSignaling } from "./hooks/useSignaling";
 import { getMediaStream } from "./utils/webrtc";
 import { Message, Participant } from "./types";
-import { LogOut, Users, Video, Wifi, WifiOff, Clock, XCircle, MessageSquare } from "lucide-react";
+import { LogOut, Users, Video, Wifi, WifiOff, Clock, XCircle, MessageSquare, Lock } from "lucide-react";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { translations, LANGUAGES, LanguageCode } from "./utils/translations";
 import { LanguageSelector } from "./components/LanguageSelector";
@@ -67,7 +68,7 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [recentSenders, setRecentSenders] = useState<Record<string, number>>({});
-  const [rightPanelTab, setRightPanelTab] = useState<"chat" | "contacts">("chat");
+  const [rightPanelTab, setRightPanelTab] = useState<"chat" | "contacts" | "dms">("chat");
 
   // Admin and Approval States
   const [isAdminView, setIsAdminView] = useState(false);
@@ -884,25 +885,36 @@ export default function App() {
           <div className="bg-white border border-slate-200/80 p-1 rounded-2xl flex gap-1 shadow-sm shrink-0" dir={isRtl ? "rtl" : "ltr"}>
             <button
               onClick={() => setRightPanelTab("chat")}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 rightPanelTab === "chat"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
-              {t("tabChat")}
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span className="truncate">{t("tabChat")}</span>
+            </button>
+            <button
+              onClick={() => setRightPanelTab("dms")}
+              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                rightPanelTab === "dms"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span className="truncate">{lang === "ar" ? "الرسائل الخاصة" : "Private DMs"}</span>
             </button>
             <button
               onClick={() => setRightPanelTab("contacts")}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 rightPanelTab === "contacts"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
-              <Users className="w-4 h-4" />
-              {t("tabContacts")}
+              <Users className="w-3.5 h-3.5" />
+              <span className="truncate">{t("tabContacts")}</span>
             </button>
           </div>
 
@@ -917,7 +929,7 @@ export default function App() {
                 t={t}
                 lang={lang}
               />
-            ) : (
+            ) : rightPanelTab === "contacts" ? (
               <ContactsPanel
                 currentUsername={currentUser.name}
                 currentRoomTitle={roomTitle}
@@ -926,6 +938,12 @@ export default function App() {
                 currentUserId={currentUser.uid}
                 t={t}
                 lang={lang}
+              />
+            ) : (
+              <DMsPanel
+                currentUsername={currentUser.name}
+                lang={lang}
+                t={t}
               />
             )}
           </div>

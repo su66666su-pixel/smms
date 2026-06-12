@@ -4,7 +4,7 @@ import {
   ShieldAlert, UserPlus, Mail, Lock, LogOut, CheckCircle2, AlertCircle, ArrowRightCircle
 } from "lucide-react";
 import { motion } from "motion/react";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, limit, orderBy } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
 import { syncUserToSupabase } from "../supabase";
 import { LanguageSelector } from "./LanguageSelector";
@@ -73,6 +73,24 @@ export function LandingPage({
 
   // Room Title for joined flows
   const [roomTitle, setRoomTitle] = useState(() => t("roomPlaceholder").replace("مثال: ", ""));
+
+  // List of all active/public rooms
+  const [allRooms, setAllRooms] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!sessionUser) return;
+    const q = query(collection(db, "rooms"), orderBy("createdAt", "desc"), limit(20));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setAllRooms(list);
+    }, (error) => {
+      console.error("Error fetching rooms: ", error);
+    });
+    return () => unsub();
+  }, [sessionUser]);
 
   // Check URL Hash for invitation links (e.g. #room-1234)
   useEffect(() => {
@@ -811,7 +829,49 @@ export function LandingPage({
                     placeholder={t("roomPlaceholder")}
                     className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3.5 text-sm text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
                   />
-                  <p className="text-3xs text-slate-450 leading-relaxed mt-2 text-justify">
+                  
+                  {/* Active Rooms list directory */}
+                  <div className="mt-4 border-t border-slate-100 pt-3 flex flex-col gap-2.5">
+                    <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
+                      <span className="text-3xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-blue-500" />
+                        {lang === "ar" ? "الغرف المتاحة حالياً" : "Active Public Rooms"} ({allRooms.length})
+                      </span>
+                      <span className="text-[9.5px] text-blue-650 font-bold">
+                        {lang === "ar" ? "اختر للدخول السريع" : "Click to select"}
+                      </span>
+                    </div>
+
+                    {allRooms.length === 0 ? (
+                      <div className="p-3.5 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                        <p className="text-[10px] text-slate-400 italic">
+                          {lang === "ar" ? "لا توجد غرف عامة نشطة حالياً. اكتب اسماً للأعلى وأنشئ غرفتك الخاصة!" : "No active public rooms discovered. Type above to create yours!"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 max-h-[130px] overflow-y-auto scrollbar-thin pr-0.5">
+                        {allRooms.map((room) => (
+                          <button
+                            key={room.id}
+                            type="button"
+                            onClick={() => {
+                              setRoomTitle(room.title);
+                            }}
+                            className={`flex flex-col items-start gap-0.5 p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-xl transition-all text-left w-full cursor-pointer group`}
+                          >
+                            <span className="text-xs font-bold text-slate-800 truncate w-full">
+                              🚪 {room.title}
+                            </span>
+                            <span className="text-[9px] text-slate-450 font-mono">
+                              ID: {room.id.substring(0, 10)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-3xs text-slate-450 leading-relaxed mt-2.5 text-justify">
                     * {lang === "ar" ? "ملاحظة: للدخول مع زملائك، يرجى كتابة اسم الغرفة بدقة كاملة. سيتم توجيهك تلقائياً وبأمان." : "Note: To enter with your team, please write the room title accurately. You will be directed securely."}
                   </p>
                 </div>

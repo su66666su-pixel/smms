@@ -372,13 +372,13 @@ export function ContactsPanel({
     }
   };
 
-  // Perform pull/search of contacts by email
+  // Perform pull/search of contacts by nickname or email
   const handleSearchContacts = async (e: React.FormEvent) => {
     e.preventDefault();
-    const emailToSearch = searchEmail.trim().toLowerCase();
+    const queryTerm = searchEmail.trim();
     
-    if (!emailToSearch) {
-      setSearchError(lang === "ar" ? "الرجاء إدخال البريد الإلكتروني للبحث." : "Please enter email to search.");
+    if (!queryTerm) {
+      setSearchError(lang === "ar" ? "الرجاء إدخال اسم مستخدم أو بريد إلكتروني للبحث." : "Please enter a nickname or email to search.");
       return;
     }
 
@@ -387,24 +387,87 @@ export function ContactsPanel({
     setSearchResult(null);
 
     try {
-      const usersCollectionRef = collection(db, "users");
-      const q = query(usersCollectionRef, where("email", "==", emailToSearch));
-      const querySnapshot = await getDocs(q);
+      const foundList: any[] = [];
 
-      if (querySnapshot.empty) {
-        setSearchError(lang === "ar" ? "لم يتم العثور على أي حساب مسجل بهذا البريد الإلكتروني." : "No registered account found with this email.");
-      } else {
-        const foundList: any[] = [];
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
+      // 1. Exact document lookup by ID
+      const docRef = doc(db, "users", queryTerm);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        foundList.push({
+          nickname: docSnap.id,
+          email: data.email || "",
+          avatarColor: data.avatarColor || "bg-blue-600",
+          accountType: data.accountType || "public",
+          createdAt: data.createdAt || ""
+        });
+      }
+
+      // 2. Query starting with queryTerm (case-sensitive as typed)
+      const qPrefix = query(
+        collection(db, "users"),
+        where("nickname", ">=", queryTerm),
+        where("nickname", "<=", queryTerm + "\uf8ff")
+      );
+      const qPrefixSnap = await getDocs(qPrefix);
+      qPrefixSnap.forEach((ds) => {
+        if (!foundList.some(item => item.nickname === ds.id)) {
+          const data = ds.data();
           foundList.push({
-            nickname: docSnap.id,
+            nickname: ds.id,
             email: data.email || "",
             avatarColor: data.avatarColor || "bg-blue-600",
-            accountType: data.accountType || "public", // default to public if not set yet
+            accountType: data.accountType || "public",
             createdAt: data.createdAt || ""
           });
+        }
+      });
+
+      // 3. Lowercase / capitalized variants for nickname search friendliness
+      const capitalizedTerm = queryTerm.charAt(0).toUpperCase() + queryTerm.slice(1);
+      if (capitalizedTerm !== queryTerm) {
+        const qCapPrefix = query(
+          collection(db, "users"),
+          where("nickname", ">=", capitalizedTerm),
+          where("nickname", "<=", capitalizedTerm + "\uf8ff")
+        );
+        const qCapPrefixSnap = await getDocs(qCapPrefix);
+        qCapPrefixSnap.forEach((ds) => {
+          if (!foundList.some(item => item.nickname === ds.id)) {
+            const data = ds.data();
+            foundList.push({
+              nickname: ds.id,
+              email: data.email || "",
+              avatarColor: data.avatarColor || "bg-blue-600",
+              accountType: data.accountType || "public",
+              createdAt: data.createdAt || ""
+            });
+          }
         });
+      }
+
+      // 4. Query where email equals search value (case-insensitive search helper)
+      const qEmail = query(
+        collection(db, "users"),
+        where("email", "==", queryTerm.toLowerCase())
+      );
+      const qEmailSnap = await getDocs(qEmail);
+      qEmailSnap.forEach((ds) => {
+        if (!foundList.some(item => item.nickname === ds.id)) {
+          const data = ds.data();
+          foundList.push({
+            nickname: ds.id,
+            email: data.email || "",
+            avatarColor: data.avatarColor || "bg-blue-600",
+            accountType: data.accountType || "public",
+            createdAt: data.createdAt || ""
+          });
+        }
+      });
+
+      if (foundList.length === 0) {
+        setSearchError(lang === "ar" ? "لم يتم العثور على أي حساب يطابق هذا الاسم أو البريد الإلكتروني." : "No matching account found with this nickname or email.");
+      } else {
         setSearchResult(foundList);
       }
     } catch (err) {
@@ -750,17 +813,17 @@ export function ContactsPanel({
               )}
             </div>
 
-            {/* Email Contact Search Input */}
+            {/* Contact Search Input */}
             <form onSubmit={handleSearchContacts} className="mt-1">
               <div className={`flex gap-2 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                 <div className="relative flex-1">
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={searchEmail}
                     onChange={(e) => setSearchEmail(e.target.value)}
-                    placeholder={t("placeholderSearchEmail")}
-                    className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none rounded-xl py-2 px-3 text-xs text-slate-800 placeholder-slate-400 transition-all font-mono ${isRtl ? "pr-9 text-right" : "pl-9 text-left"}`}
+                    placeholder={lang === "ar" ? "ابحث بالاسم المستعار أو البريد الإلكتروني..." : "Search by nickname or email..."}
+                    className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none rounded-xl py-2 px-3 text-xs text-slate-800 placeholder-slate-400 transition-all ${isRtl ? "pr-9 text-right" : "pl-9 text-left"}`}
                   />
                   <Search className={`absolute w-4 h-4 text-slate-400 top-2.5 ${isRtl ? "right-3" : "left-3"}`} />
                 </div>
@@ -876,10 +939,14 @@ export function ContactsPanel({
 
               {!searchResult && !searchError && (
                 <div className="h-28 border border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                  <Mail className="w-6 h-6 text-slate-350 mb-1" />
-                  <p className="text-3xs font-semibold text-slate-500">{t("readySearchLabel")}</p>
+                  <Users className="w-6 h-6 text-slate-350 mb-1" />
+                  <p className="text-3xs font-semibold text-slate-500">
+                    {lang === "ar" ? "البحث عن الأشخاص" : "Search for People"}
+                  </p>
                   <p className="text-3xs text-slate-400 mt-0.5 leading-relaxed max-w-[180px]">
-                    {t("readySearchDesc")}
+                    {lang === "ar" 
+                      ? "ابحث عن أصدقائك بوضع الاسم المستعار أو البريد الإلكتروني لمتابعتهم وتبادل اللقاءات." 
+                      : "Search for your peers by typing their nickname or email address to follow and connect."}
                   </p>
                 </div>
               )}
