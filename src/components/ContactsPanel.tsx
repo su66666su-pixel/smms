@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { syncUserToSupabase, syncFollowToSupabase, deleteFollowFromSupabase } from "../supabase";
 
 interface ContactsPanelProps {
   currentUsername: string; // The nickname of the current logged-in user
@@ -101,13 +102,15 @@ export function ContactsPanel({
     if (!currentUsername || !targetNickname) return;
     const followId = `${currentUsername}_${targetNickname}`;
     try {
-      await setDoc(doc(db, "follows", followId), {
+      const followPayload = {
         sender: currentUsername,
         recipient: targetNickname,
         status: "pending",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      };
+      await setDoc(doc(db, "follows", followId), followPayload);
+      await syncFollowToSupabase(followId, followPayload);
     } catch (e) {
       console.error("Error setting follow:", e);
     }
@@ -119,6 +122,10 @@ export function ContactsPanel({
         status: "approved",
         updatedAt: new Date().toISOString()
       });
+      const fSnap = await getDoc(doc(db, "follows", followId));
+      if (fSnap.exists()) {
+        await syncFollowToSupabase(followId, fSnap.data());
+      }
     } catch (e) {
       console.error("Error approving follow:", e);
     }
@@ -130,6 +137,10 @@ export function ContactsPanel({
         status: "rejected",
         updatedAt: new Date().toISOString()
       });
+      const fSnap = await getDoc(doc(db, "follows", followId));
+      if (fSnap.exists()) {
+        await syncFollowToSupabase(followId, fSnap.data());
+      }
     } catch (e) {
       console.error("Error rejecting follow:", e);
     }
@@ -138,6 +149,7 @@ export function ContactsPanel({
   const handleDeleteFollow = async (followId: string) => {
     try {
       await deleteDoc(doc(db, "follows", followId));
+      await deleteFollowFromSupabase(followId);
     } catch (e) {
       console.error("Error deleting follow:", e);
     }
@@ -273,6 +285,12 @@ export function ContactsPanel({
       await updateDoc(userDocRef, {
         accountType: nextType
       });
+      try {
+        const uSnap = await getDoc(userDocRef);
+        if (uSnap.exists()) {
+          await syncUserToSupabase(currentUsername, uSnap.data());
+        }
+      } catch (err) {}
       setMyAccountType(nextType);
       setSettingsSuccess(
         nextType === "public" 
@@ -327,6 +345,12 @@ export function ContactsPanel({
       await updateDoc(userDocRef, {
         password: cleanNew
       });
+      try {
+        const uSnap = await getDoc(userDocRef);
+        if (uSnap.exists()) {
+          await syncUserToSupabase(currentUsername, uSnap.data());
+        }
+      } catch (err) {}
       
       // Update local storage session if exists
       const savedSession = localStorage.getItem("snns_session");

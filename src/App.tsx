@@ -25,6 +25,13 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { translations, LANGUAGES, LanguageCode } from "./utils/translations";
 import { LanguageSelector } from "./components/LanguageSelector";
 import { playMessageChime, playJoinChime } from "./utils/audio";
+import { 
+  syncUserToSupabase, 
+  syncRoomToSupabase, 
+  syncParticipantToSupabase, 
+  deleteParticipantFromSupabase, 
+  syncMessageToSupabase 
+} from "./supabase";
 
 export default function App() {
   const [lang, setLang] = useState<LanguageCode>(() => {
@@ -269,14 +276,22 @@ export default function App() {
       // Update approved user with their current active UID
       const userDocRef = doc(db, "users", name);
       await setDoc(userDocRef, { uid }, { merge: true });
+      try {
+        const uSnap = await getDoc(userDocRef);
+        if (uSnap.exists()) {
+          await syncUserToSupabase(name, uSnap.data());
+        }
+      } catch (err) {}
 
       // Create Room node if it doesn't exist
       const roomDocRef = doc(db, "rooms", safeRoomId);
-      await setDoc(roomDocRef, {
+      const roomPayload = {
         title: title,
         hostId: uid,
         createdAt: new Date().toISOString(),
-      }, { merge: true });
+      };
+      await setDoc(roomDocRef, roomPayload, { merge: true });
+      await syncRoomToSupabase(safeRoomId, roomPayload);
 
       // Grab local camera or emulator media stream
       const media = await getMediaStream(name, { video: true, audio: true });
@@ -285,13 +300,15 @@ export default function App() {
 
       // Set participant as active presence in room
       const participantDocRef = doc(db, "rooms", safeRoomId, "participants", uid);
-      await setDoc(participantDocRef, {
+      const participantPayload = {
         uid,
         name,
         avatar: colorClass,
         isActive: true,
         joinedAt: new Date().toISOString(),
-      });
+      };
+      await setDoc(participantDocRef, participantPayload);
+      await syncParticipantToSupabase(safeRoomId, uid, participantPayload);
 
     } catch (e) {
       console.error("Room Access Error:", e);
@@ -324,12 +341,14 @@ export default function App() {
 
       if (!snap.exists()) {
         // Create user document as pending
-        await setDoc(userDocRef, {
+        const pendingUserPayload = {
           nickname: cleanName,
           status: "pending",
           uid: "",
           createdAt: new Date().toISOString(),
-        });
+        };
+        await setDoc(userDocRef, pendingUserPayload);
+        await syncUserToSupabase(cleanName, pendingUserPayload);
         setPendingUser({ nickname: cleanName, roomTitle: title, avatarColor: colorClass });
         setApprovalStatus("pending");
       } else {
@@ -527,7 +546,8 @@ export default function App() {
         payload.recipientName = recipientName;
       }
 
-      await addDoc(messagesCollectionRef, payload);
+      const docRef = await addDoc(messagesCollectionRef, payload);
+      await syncMessageToSupabase(docRef.id, roomId, payload);
     } catch (e) {
       console.error("Message write error:", e);
       alert("فشل إرسال الرسالة، يرجى التحقق من القوانين.");
@@ -557,6 +577,7 @@ export default function App() {
       if (uId && rId) {
         try {
           await deleteDoc(doc(db, "rooms", rId, "participants", uId));
+          await deleteParticipantFromSupabase(rId, uId);
         } catch (e) {}
       }
     }

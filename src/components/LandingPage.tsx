@@ -6,6 +6,7 @@ import {
 import { motion } from "motion/react";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
+import { syncUserToSupabase } from "../supabase";
 import { LanguageSelector } from "./LanguageSelector";
 import { LanguageCode } from "../utils/translations";
 
@@ -240,6 +241,9 @@ export function LandingPage({
 
       await setDoc(userDocRef, newUserPayload);
 
+      // Mirror sync profile instantly to Supabase
+      await syncUserToSupabase(cleanName, newUserPayload);
+
       // Save to active session
       localStorage.setItem("snns_session", JSON.stringify(newUserPayload));
       setSessionUser(newUserPayload);
@@ -303,6 +307,9 @@ export function LandingPage({
       await updateDoc(userDocRef, {
         password: newPass
       });
+
+      // Mirror password reset instantly to Supabase
+      await syncUserToSupabase(cleanName, { ...userData, password: newPass });
 
       setSuccessMessage(t("successRecovery"));
       

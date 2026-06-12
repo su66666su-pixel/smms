@@ -8,6 +8,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
+import { syncUserToSupabase, syncMessageToSupabase, syncStats } from "../supabase";
 import {
   Users,
   CheckCircle2,
@@ -27,6 +28,7 @@ import {
   Shield,
   MessageSquare,
   ArrowLeft,
+  Radio,
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -268,6 +270,12 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
     try {
       const userRef = doc(db, "users", nickname);
       await setDoc(userRef, { status: "approved" }, { merge: true });
+      try {
+        const uSnap = await getDoc(userRef);
+        if (uSnap.exists()) {
+          await syncUserToSupabase(nickname, uSnap.data());
+        }
+      } catch (err) {}
     } catch (e) {
       console.error("Error approving user:", e);
       alert("فشل تحديث حالة المستخدم.");
@@ -283,6 +291,12 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
     try {
       const userRef = doc(db, "users", nickname);
       await setDoc(userRef, { status: "rejected" }, { merge: true });
+      try {
+        const uSnap = await getDoc(userRef);
+        if (uSnap.exists()) {
+          await syncUserToSupabase(nickname, uSnap.data());
+        }
+      } catch (err) {}
     } catch (e) {
       console.error("Error rejecting user:", e);
       alert("فشل تحديث حالة المستخدم.");
@@ -299,6 +313,10 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
       try {
         const userRef = doc(db, "users", nickname);
         await deleteDoc(userRef);
+        try {
+          const { supabase } = await import("../supabase");
+          await supabase.from("users").delete().eq("nickname", nickname);
+        } catch (err) {}
       } catch (e) {
         console.error("Error deleting user:", e);
         alert("فشل حذف المستخدم.");
@@ -315,6 +333,12 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
     try {
       const userRef = doc(db, "users", nickname);
       await setDoc(userRef, { role }, { merge: true });
+      try {
+        const uSnap = await getDoc(userRef);
+        if (uSnap.exists()) {
+          await syncUserToSupabase(nickname, uSnap.data());
+        }
+      } catch (err) {}
       alert(`تم تعديل صلاحية "${nickname}" بنجاح فورا.`);
     } catch (e) {
       console.error("Error setting user role:", e);
@@ -376,6 +400,12 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
     try {
       const userRef = doc(db, "users", nickname);
       await setDoc(userRef, { password: cleanPass }, { merge: true });
+      try {
+        const uSnap = await getDoc(userRef);
+        if (uSnap.exists()) {
+          await syncUserToSupabase(nickname, uSnap.data());
+        }
+      } catch (err) {}
       alert(`تم تحديث الرمز السري للمستشار "${nickname}" بنجاح!`);
       setEditingNickname(null);
       setEditedPassword("");
@@ -415,6 +445,7 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
       };
       
       await setDoc(doc(messagesCollectionRef, randomDocId), payload);
+      await syncMessageToSupabase(randomDocId, selectedRoomId, payload);
       setAdminBroadcastText("");
       setBroadcastSuccess("تم بث التنبيه الإداري عاجلاً في الغرفة بنجاح!");
       setTimeout(() => setBroadcastSuccess(""), 3500);
@@ -456,14 +487,16 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
 
     try {
       const userRef = doc(db, "users", nameClean);
-      await setDoc(userRef, {
+      const userPayload = {
         nickname: nameClean,
         status: newStatus,
         uid: "",
         createdAt: new Date().toISOString(),
         role: newRole,
         password: passClean,
-      });
+      };
+      await setDoc(userRef, userPayload);
+      await syncUserToSupabase(nameClean, userPayload);
       setFormSuccess(`تمت إضافة المستخدم "${nameClean}" بنجاح بصفة: ${newRole === "admin" ? "مشرف عام" : newRole === "moderator" ? "مراقب غرف" : "عضو عادي"} وبحالة: ${newStatus === "approved" ? "نشط ومفعل" : "بانتظار الموافقة"}`);
       setNewNickname("");
       setNewPassword("");
@@ -664,6 +697,55 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
                 <div className="text-xl font-black text-emerald-400">{approvedCount}</div>
                 <div className="text-xxs text-slate-400 mt-1">المفعلين</div>
               </div>
+            </div>
+          </div>
+
+          {/* Supabase Database Connection Stats Panel */}
+          <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                رابط قاعدة بيانات Supabase
+              </span>
+              <span className="text-3xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black">
+                نشط ومتصل
+              </span>
+            </h3>
+            
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              تتم مزامنة أي بيانات أو حسابات أو محادثات مع قاعدة بيانات Supabase الخارجية بالزمن الفعلي فور إنشائها.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <div className="bg-slate-900/60 border border-slate-800/60 p-2.5 rounded-xl text-center">
+                <span className="text-xs font-black text-white">{syncStats.usersSynced}</span>
+                <span className="block text-[9px] text-slate-400 mt-0.5">الحسابات المتزامنة</span>
+              </div>
+              <div className="bg-slate-900/60 border border-slate-800/60 p-2.5 rounded-xl text-center">
+                <span className="text-xs font-black text-white">{syncStats.messagesSynced}</span>
+                <span className="block text-[9px] text-slate-400 mt-0.5">الرسائل المتزامنة</span>
+              </div>
+              <div className="bg-slate-900/60 border border-slate-800/60 p-2.5 rounded-xl text-center">
+                <span className="text-xs font-black text-white">{syncStats.roomsSynced}</span>
+                <span className="block text-[9px] text-slate-400 mt-0.5">الغرف المفعلة</span>
+              </div>
+              <div className="bg-slate-900/60 border border-slate-800/60 p-2.5 rounded-xl text-center">
+                <span className="text-xs font-black text-white">{syncStats.followsSynced}</span>
+                <span className="block text-[9px] text-slate-400 mt-0.5">المتابعات الموثقة</span>
+              </div>
+            </div>
+
+            <div className="mt-1 pb-1 flex flex-col gap-1.5 border-t border-slate-800/40 pt-2.5">
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <span>رابط المشروع الخارجي:</span>
+                <span className="font-mono text-[9px] text-blue-450 select-all truncate max-w-[160px]" title="iuncogugnnjbeqtrkbnr.supabase.co">iuncogugnnjbeqtrkbnr.supabase.co</span>
+              </div>
+              {syncStats.lastSyncTime && (
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>آخر مزامنة ناجحة:</span>
+                  <span className="font-mono text-[9px] text-emerald-400">{new Date(syncStats.lastSyncTime).toLocaleTimeString()}</span>
+                </div>
+              )}
             </div>
           </div>
 
