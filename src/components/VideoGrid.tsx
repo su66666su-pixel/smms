@@ -84,6 +84,38 @@ export function VideoGrid({
   const endBroadcastLabel = isArabic ? "انهاء البث" : "End Broadcast";
   const endCallLabel = isArabic ? "انهاء المكالمة" : "End Call";
 
+  const tTooltipAudio = (() => {
+    if (callState === "idle") {
+      return isArabic ? "بدء اتصال صوتي آمن مع الطرف الآخر" : "Start secure audio call with other participant";
+    }
+    return isMuted 
+      ? (isArabic ? "تشغيل الميكروفون (إلغاء الكتم)" : "Unmute microphone")
+      : (isArabic ? "كتم الصوت مؤقتاً" : "Mute microphone");
+  })();
+
+  const tTooltipVideo = (() => {
+    if (callState === "idle") {
+      return isArabic ? "بدء اتصال مرئي HD مع الطرف الآخر" : "Start HD video call with other participant";
+    }
+    return isVideoOff
+      ? (isArabic ? "تشغيل كاميرا البث" : "Start camera stream")
+      : (isArabic ? "إيقاف كاميرا البث" : "Stop camera stream");
+  })();
+
+  const tTooltipAdd = copied
+    ? (isArabic ? "تم نسخ الرابط الحصري للغرفة!" : "Exclusive room link copied!")
+    : (isArabic ? "نسخ رابط دعوة الغرفة السريع وإرساله للأصدقاء" : "Copy quick room invitation link & send to friends");
+
+  const tTooltipBlock = isBlocked
+    ? (isArabic ? "إلغاء حظر رؤية وصوت هذا المستخدم" : "Unblock user media & vision")
+    : (isArabic ? "حظر رؤية وصوت هذا المستخدم مؤقتاً" : "Block user media & vision temporarily");
+
+  const tTooltipMore = isArabic ? "خيارات إضافية ومشاركة الشاشة ومعلومات الرابط" : "Extra options, screen share & connection info";
+
+  const tTooltipBroadcast = isArabic ? "إنهاء البث وإيقاف الكاميرا أو مشاركة الشاشة" : "End broadcast & stop camera or screen share";
+
+  const tTooltipEndCall = isArabic ? "إنهاء المكالمة بالكامل مع الطرف الآخر" : "End entire call session with other participant";
+
   function getAvatarColorAndInitials(name: string) {
     if (!name) return { initials: "👤", bgClass: "bg-gradient-to-tr from-indigo-700 to-purple-600 shadow-indigo-505/30" };
     const cleanName = name.replace(/[#\.\/\[\]\$]/g, "").trim();
@@ -427,79 +459,124 @@ export function VideoGrid({
         </div>
 
         {/* Call Floating Action Overlays Controls / Dashboard (HUD) - Floating over the Video */}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-wrap items-center justify-center gap-2 md:gap-3 bg-slate-950/85 backdrop-blur-md border border-slate-800 shadow-2xl p-2.5 px-4 rounded-2xl w-[94%] sm:w-auto max-w-[96%] transition-all duration-300">
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-wrap items-center justify-center gap-2 md:gap-3 bg-[#0a0f1d]/90 backdrop-blur-xl border border-slate-800 shadow-2xl p-2.5 px-4 rounded-2xl w-[94%] sm:w-auto max-w-[96%] transition-all duration-300">
           
           {/* 1. 📞 Audio Call (اتصال صوتي) */}
-          <button
-            type="button"
-            onClick={callState !== "idle" ? onToggleMute : onStartCall}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold ${
-              isMuted && callState !== "idle"
-                ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
-                : "bg-emerald-600/20 text-emerald-400 border border-emerald-550/30 hover:bg-emerald-600/30"
-            }`}
-            title={audioCallLabel}
-          >
-            <span className="text-sm">📞</span>
-            <span>{audioCallLabel}</span>
-          </button>
+          <div className="relative group flex items-center justify-center">
+            <button
+              type="button"
+              onClick={callState !== "idle" ? onToggleMute : onStartCall}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold active:scale-95 ${
+                isMuted && callState !== "idle"
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
+                  : "bg-emerald-600/20 text-emerald-400 border border-emerald-550/30 hover:bg-emerald-600/30"
+              }`}
+            >
+              <span className="text-sm">📞</span>
+              <span>{audioCallLabel}</span>
+            </button>
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
+                {tTooltipAudio}
+              </div>
+              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+            </div>
+          </div>
 
           {/* 2. 🎥 Video Call (اتصال مرئي) */}
-          <button
-            type="button"
-            onClick={callState !== "idle" ? onToggleVideo : onStartCall}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold ${
-              isVideoOff && callState !== "idle"
-                ? "bg-red-500/30 text-red-400 border border-red-505/40 hover:bg-red-500/45"
-                : "bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30"
-            }`}
-            title={videoCallLabel}
-          >
-            <span className="text-sm">🎥</span>
-            <span>{videoCallLabel}</span>
-          </button>
+          <div className="relative group flex items-center justify-center">
+            <button
+              type="button"
+              onClick={callState !== "idle" ? onToggleVideo : onStartCall}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold active:scale-95 ${
+                isVideoOff && callState !== "idle"
+                  ? "bg-red-500/30 text-red-400 border border-red-505/40 hover:bg-red-500/45"
+                  : "bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30"
+              }`}
+            >
+              <span className="text-sm">🎥</span>
+              <span>{videoCallLabel}</span>
+            </button>
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
+                {tTooltipVideo}
+              </div>
+              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+            </div>
+          </div>
 
           {/* 3. ➕ Add Participant (إضافة مشارك) */}
-          <button
-            type="button"
-            onClick={copyRoomLink}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-805 text-slate-200 hover:bg-slate-850 transition-all cursor-pointer text-xs font-bold active:scale-95"
-            title={addParticipantLabel}
-          >
-            <span className="text-xs">➕</span>
-            <span>{copied ? (isArabic ? "تم النسخ!" : "Link Copied!") : addParticipantLabel}</span>
-          </button>
+          <div className="relative group flex items-center justify-center">
+            <button
+              type="button"
+              onClick={copyRoomLink}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-805 text-slate-200 hover:bg-slate-850 transition-all cursor-pointer text-xs font-bold active:scale-95"
+            >
+              <span className="text-xs">➕</span>
+              <span>{copied ? (isArabic ? "تم النسخ!" : "Link Copied!") : addParticipantLabel}</span>
+            </button>
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
+                {tTooltipAdd}
+              </div>
+              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+            </div>
+          </div>
 
           {/* 4. 🛡️ Block (حظر) */}
-          <button
-            type="button"
-            onClick={() => setIsBlocked(!isBlocked)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold ${
-              isBlocked
-                ? "bg-rose-650 text-white border border-rose-600 hover:bg-rose-700 animate-pulse"
-                : "bg-amber-600/20 text-amber-500 border border-amber-555/30 hover:bg-amber-655/35"
-            }`}
-            title={blockLabel}
-          >
-            <span className="text-sm">🛡️</span>
-            <span>{blockLabel}</span>
-          </button>
+          <div className="relative group flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setIsBlocked(!isBlocked)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold active:scale-95 ${
+                isBlocked
+                  ? "bg-rose-650 text-white border border-rose-600 hover:bg-rose-700 animate-pulse"
+                  : "bg-amber-600/20 text-amber-500 border border-amber-555/30 hover:bg-amber-655/35"
+              }`}
+            >
+              <span className="text-sm">🛡️</span>
+              <span>{blockLabel}</span>
+            </button>
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
+                {tTooltipBlock}
+              </div>
+              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+            </div>
+          </div>
 
           {/* 5. ⋮ More (المزيد) */}
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className={`flex items-center gap-1 px-2.5 py-2 rounded-xl border transition-all cursor-pointer text-xs font-bold ${
-                showMoreMenu
-                  ? "bg-indigo-650 border-indigo-505 text-white"
-                  : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
-              }`}
-              title={moreLabel}
-            >
-              <span className="text-sm font-bold">⋮</span>
-              <span>{moreLabel}</span>
-            </button>
+            <div className="relative group flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className={`flex items-center gap-1 px-2.5 py-2 rounded-xl border transition-all cursor-pointer text-xs font-bold active:scale-95 ${
+                  showMoreMenu
+                    ? "bg-indigo-650 border-indigo-505 text-white"
+                    : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                <span className="text-sm font-bold">⋮</span>
+                <span>{moreLabel}</span>
+              </button>
+
+              {/* Tooltip */}
+              <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
+                <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
+                  {tTooltipMore}
+                </div>
+                <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+              </div>
+            </div>
             
             {showMoreMenu && (
               <div className={`absolute bottom-11 ${isRtl ? "right-0" : "left-0"} bg-slate-950 border border-slate-800 rounded-xl p-2 w-48 shadow-2xl z-40 flex flex-col gap-1 text-[11px]`}>
@@ -541,49 +618,66 @@ export function VideoGrid({
           </div>
 
           {/* 6. End Broadcast (انهاء البث) */}
-          <button
-            type="button"
-            onClick={() => {
-              if (isScreenSharing) {
-                onToggleScreenShare();
-              } else if (!isVideoOff) {
-                onToggleVideo();
-              }
-            }}
-            disabled={!isScreenSharing && isVideoOff}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all font-bold text-xs cursor-pointer ${
-              isScreenSharing || !isVideoOff
-                ? "bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600/35"
-                : "opacity-40 cursor-not-allowed bg-slate-900 border border-slate-800 text-slate-500"
-            }`}
-            title={endBroadcastLabel}
-          >
-            <span className="text-sm">📡</span>
-            <span>{endBroadcastLabel}</span>
-          </button>
+          <div className="relative group flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (isScreenSharing) {
+                  onToggleScreenShare();
+                } else if (!isVideoOff) {
+                  onToggleVideo();
+                }
+              }}
+              disabled={!isScreenSharing && isVideoOff}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all font-bold text-xs cursor-pointer active:scale-95 ${
+                isScreenSharing || !isVideoOff
+                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600/35"
+                  : "opacity-40 cursor-not-allowed bg-slate-900 border border-slate-800 text-slate-500"
+              }`}
+            >
+              <span className="text-sm">📡</span>
+              <span>{endBroadcastLabel}</span>
+            </button>
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
+                {tTooltipBroadcast}
+              </div>
+              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+            </div>
+          </div>
 
           {/* 7. End Call (انهاء المكالمة) */}
-          {callState !== "idle" ? (
-            <button
-              type="button"
-              onClick={onEndCall}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-650 border border-red-600 hover:bg-red-700 hover:scale-102 text-white transition-all cursor-pointer text-xs font-bold"
-              title={endCallLabel}
-            >
-              <span className="text-sm">❌</span>
-              <span>{endCallLabel}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 opacity-40 cursor-not-allowed text-xs font-bold"
-              title={endCallLabel}
-            >
-              <span className="text-sm">❌</span>
-              <span>{endCallLabel}</span>
-            </button>
-          )}
+          <div className="relative group flex items-center justify-center">
+            {callState !== "idle" ? (
+              <button
+                type="button"
+                onClick={onEndCall}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-650 border border-red-600 hover:bg-red-700 hover:scale-102 text-white transition-all cursor-pointer text-xs font-bold active:scale-95"
+              >
+                <span className="text-sm">❌</span>
+                <span>{endCallLabel}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 opacity-40 cursor-not-allowed text-xs font-bold"
+              >
+                <span className="text-sm">❌</span>
+                <span>{endCallLabel}</span>
+              </button>
+            )}
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
+                {tTooltipEndCall}
+              </div>
+              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+            </div>
+          </div>
 
         </div>
       </div>
