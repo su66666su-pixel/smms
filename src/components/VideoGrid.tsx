@@ -63,6 +63,76 @@ export function VideoGrid({
 
   const isRtl = lang === "ar" || lang === "ur";
 
+  // WhatsApp-style calling states & details
+  const [internalStatus, setInternalStatus] = React.useState<"idle" | "connecting" | "ringing" | "connected" | "rejected" | "ended">("idle");
+  const [prevCallState, setPrevCallState] = React.useState<typeof callState>("idle");
+  const [lastRemoteName, setLastRemoteName] = React.useState<string>("");
+
+  function getAvatarColorAndInitials(name: string) {
+    if (!name) return { initials: "👤", bgClass: "bg-gradient-to-tr from-indigo-700 to-purple-600 shadow-indigo-505/30" };
+    const cleanName = name.replace(/[#\.\/\[\]\$]/g, "").trim();
+    if (!cleanName) return { initials: "👤", bgClass: "bg-gradient-to-tr from-indigo-700 to-purple-600 shadow-indigo-505/30" };
+    const initials = cleanName.substring(0, 2).toUpperCase();
+    const colors = [
+      "bg-gradient-to-tr from-indigo-600 to-indigo-800 shadow-indigo-505/35",
+      "bg-gradient-to-tr from-purple-600 to-violet-850 shadow-purple-505/35",
+      "bg-gradient-to-tr from-rose-600 to-pink-800 shadow-rose-505/35",
+      "bg-gradient-to-tr from-emerald-600 to-teal-800 shadow-emerald-505/35",
+      "bg-gradient-to-tr from-amber-600 to-orange-800 shadow-amber-505/35",
+      "bg-gradient-to-tr from-cyan-600 to-sky-800 shadow-cyan-505/35"
+    ];
+    let sum = 0;
+    for (let i = 0; i < cleanName.length; i++) {
+      sum += cleanName.charCodeAt(i);
+    }
+    const bgClass = colors[sum % colors.length];
+    return { initials, bgClass };
+  }
+
+  // Monitor call status transitions with pristine state accuracy
+  useEffect(() => {
+    if (activeCall) {
+      const remoteName = activeCall.callerId === (localStream?.id || "local")
+        ? t("remoteParticipantLabel")
+        : activeCall.callerName;
+      if (remoteName && remoteName !== t("remoteParticipantLabel")) {
+        setLastRemoteName(remoteName);
+      }
+    }
+  }, [activeCall, localStream, t]);
+
+  useEffect(() => {
+    if (callState === "ringing-out") {
+      setInternalStatus("connecting");
+      // Advance to "ringing" simulating real WhatsApp double tick transition
+      const ringTimer = setTimeout(() => {
+        setInternalStatus("ringing");
+      }, 2500);
+      return () => clearTimeout(ringTimer);
+    } else if (callState === "ringing-in") {
+      setInternalStatus("ringing");
+    } else if (callState === "connected") {
+      setInternalStatus("connected");
+    } else if (callState === "idle") {
+      if (prevCallState === "ringing-out" || prevCallState === "ringing-in") {
+        setInternalStatus("rejected");
+        const clearTimer = setTimeout(() => {
+          setInternalStatus("idle");
+        }, 6000);
+        return () => clearTimeout(clearTimer);
+      } else if (prevCallState === "connected") {
+        setInternalStatus("ended");
+        const clearTimer = setTimeout(() => {
+          setInternalStatus("idle");
+        }, 6000);
+        return () => clearTimeout(clearTimer);
+      } else {
+        setInternalStatus("idle");
+      }
+    }
+    setPrevCallState(callState);
+  }, [callState, prevCallState]);
+
   // Bind local stream object to HTMLVideoElement
   useEffect(() => {
     if (localVideoRef.current && localStream) {
@@ -177,8 +247,8 @@ export function VideoGrid({
           </div>
         </div>
 
-        {/* Remote Stream Window */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative group shadow-md flex items-center justify-center">
+               {/* Remote Stream Window */}
+        <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl overflow-hidden relative group shadow-md flex items-center justify-center">
           {callState === "connected" && remoteStream ? (
             <>
               <video
@@ -187,74 +257,135 @@ export function VideoGrid({
                 playsInline
                 className="w-full h-full object-cover"
               />
-              <div className="absolute top-3 left-3 bg-emerald-500/20 border border-emerald-500/35 px-2.5 py-1 rounded-full text-xxs font-mono text-emerald-300 animate-pulse">
-                LIVE HD
+              <div className="absolute top-3 left-3 bg-emerald-500/20 border border-emerald-505/35 px-2.5 py-1 rounded-full text-xxs font-mono text-emerald-300 animate-pulse flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-emerald-450 rounded-full animate-ping" />
+                <span>LIVE HD • {t("statusConnectedNow")}</span>
               </div>
               <div className="absolute bottom-4 right-4 left-4 bg-slate-950/80 backdrop-blur-md border border-slate-850 rounded-xl p-2.5 px-3.5 flex items-center justify-between z-10 shadow-lg">
                 <span className="text-xs font-bold text-white">
-                  {activeCall ? (activeCall.callerId === localStream?.id ? t("remoteParticipantLabel") : activeCall.callerName) : t("remoteParticipantLabel")}
+                  {activeCall ? (activeCall.callerId === localStream?.id ? lastRemoteName || t("remoteParticipantLabel") : activeCall.callerName) : lastRemoteName || t("remoteParticipantLabel")}
+                </span>
+                <span className="text-xxs px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 text-emerald-350 rounded-full font-bold">
+                  {t("statusConnectedNow")}
                 </span>
               </div>
             </>
           ) : (
-            <div className="text-center p-6 flex flex-col items-center gap-4 font-sans max-w-sm">
-              {callState === "ringing-out" ? (
-                <>
-                  <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 animate-pulse">
-                    <Phone className="w-8 h-8 animate-bounce" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-blue-400 animate-pulse">{t("ringingCallTitle")}</p>
-                    <p className="text-2xs text-slate-400 mt-1">{t("ringingCallDesc")}</p>
-                  </div>
+            <div className="w-full h-full relative bg-gradient-to-b from-[#0e1626] via-[#151f38] to-[#0a0f1d] flex flex-col items-center justify-center p-6 text-center font-sans">
+              
+              {/* WhatsApp Floating Background Bubbles Effect */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.08)_0%,transparent_70%)] pointer-events-none" />
+              
+              {/* Avatar Frame with Dynamic Glowing Rings (WhatsApp Style) */}
+              <div className="relative mb-5 flex items-center justify-center">
+                {(internalStatus === "connecting" || internalStatus === "ringing") && (
+                  <>
+                    <div className="absolute w-36 h-36 rounded-full border border-indigo-500/20 animate-ping opacity-60" />
+                    <div className="absolute w-44 h-44 rounded-full border border-indigo-400/10 animate-pulse scale-105" />
+                  </>
+                )}
+                {internalStatus === "rejected" && (
+                  <div className="absolute w-32 h-32 rounded-full bg-red-500/10 border border-red-500/20 animate-pulse" />
+                )}
+                
+                {/* Dynamic Initialized Avatar Badge */}
+                {(() => {
+                  const resolvedRemoteName = activeCall
+                    ? (activeCall.callerId === localStream?.id
+                        ? (lastRemoteName || t("remoteParticipantLabel"))
+                        : activeCall.callerName)
+                    : (lastRemoteName || t("remoteParticipantLabel"));
+                  const avatar = getAvatarColorAndInitials(resolvedRemoteName);
+                  return (
+                    <div className={`w-24 h-24 rounded-full ${avatar.bgClass} flex items-center justify-center text-white text-3xl font-black relative shadow-xl border-3 border-[#1c2742]/50 transition-all duration-300 z-10`}>
+                      {avatar.initials}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* User Name Tag */}
+              <h5 className="text-base md:text-lg font-black text-white px-4 tracking-wide shadow-xs truncate max-w-[280px]">
+                {activeCall
+                  ? (activeCall.callerId === localStream?.id
+                      ? (lastRemoteName || t("remoteParticipantLabel"))
+                      : activeCall.callerName)
+                  : (lastRemoteName || t("remoteParticipantLabel"))}
+              </h5>
+
+              {/* Status Message (Like WhatsApp Subtitle Indicator) */}
+              <div className="mt-2 text-xxs md:text-xs font-bold flex items-center gap-2 px-3 py-1 bg-[#1a2540]/65 border border-[#2b3b61]/40 rounded-full text-slate-300 shadow-sm">
+                {internalStatus === "connecting" && (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+                    <span className="text-blue-400">{t("statusConnecting")}</span>
+                  </>
+                )}
+                {internalStatus === "ringing" && (
+                  <>
+                    <Phone className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+                    <span className="text-emerald-400 font-extrabold">{t("statusRinging")}</span>
+                  </>
+                )}
+                {internalStatus === "rejected" && (
+                  <>
+                    <PhoneOff className="w-3.5 h-3.5 text-red-400" />
+                    <span className="text-red-400 font-extrabold">{t("statusCallRejected")}</span>
+                  </>
+                )}
+                {internalStatus === "ended" && (
+                  <>
+                    <PhoneOff className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-slate-400">{t("statusCallEnded")}</span>
+                  </>
+                )}
+                {internalStatus === "idle" && (
+                  <>
+                    <PhoneOff className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-slate-400">{t("statusOffline")}</span>
+                  </>
+                )}
+              </div>
+
+              {/* Action Buttons Integrated Into Calling Panels */}
+              <div className="mt-6 z-10">
+                {callState === "ringing-out" ? (
                   <button
                     onClick={onEndCall}
-                    className="mt-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 text-xs px-4 py-2 rounded-xl transition-all font-semibold cursor-pointer"
+                    className="bg-red-650 hover:bg-red-700 hover:scale-105 active:scale-95 text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer border border-red-500/40"
                   >
-                    {t("cancelCallBtn")}
+                    <PhoneOff className="w-4 h-4" />
+                    <span>{t("cancelCallBtn")}</span>
                   </button>
-                </>
-              ) : callState === "ringing-in" ? (
-                <>
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 animate-ping">
-                    <Phone className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-emerald-450 text-emerald-500">{t("incomingCallFrom", { caller: activeCall?.callerName || "" })}</p>
-                    <p className="text-2xs text-slate-400 mt-1">{t("incomingCallDesc")}</p>
-                  </div>
-                  <div className="flex gap-3 mt-2">
+                ) : callState === "ringing-in" ? (
+                  <div className="flex gap-4">
                     <button
                       onClick={onAcceptCall}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
+                      className="bg-emerald-600 hover:bg-emerald-700 hover:scale-105 active:scale-95 text-white font-extrabold text-xs px-6 py-3 rounded-xl transition-all shadow-lg flex items-center gap-2 cursor-pointer border border-emerald-500/30"
                     >
-                      {t("acceptCallBtn")}
+                      <Phone className="w-4 h-4" />
+                      <span>{t("acceptCallBtn")}</span>
                     </button>
                     <button
                       onClick={onEndCall}
-                      className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-300 font-semibold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer"
+                      className="bg-[#ad202c] hover:bg-[#c22836] hover:scale-105 active:scale-95 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer border border-red-500/30"
                     >
-                      {t("rejectBtn")}
+                      <PhoneOff className="w-4 h-4" />
+                      <span>{t("rejectBtn")}</span>
                     </button>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-650">
-                    <PhoneOff className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-300">{t("noActiveCallTitle")}</p>
-                    <p className="text-2xs text-slate-400 mt-1">{t("noActiveCallDesc")}</p>
-                  </div>
+                ) : (
                   <button
                     onClick={onStartCall}
-                    className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-6 py-3 rounded-xl transition-colors shadow-md cursor-pointer"
+                    className="bg-gradient-to-r from-blue-650 to-indigo-650 hover:from-blue-700 hover:to-indigo-700 hover:scale-105 active:scale-95 text-white text-xs font-bold px-7 py-3 rounded-xl transition-all shadow-xl flex items-center gap-2 cursor-pointer border border-blue-500/25"
                   >
-                    {t("startWebRtcCallBtn")}
+                    <Phone className="w-4 h-4 animate-pulse" />
+                    <span>{t("startWebRtcCallBtn")}
+                    </span>
                   </button>
-                </>
-              )}
+                )}
+              </div>
+
             </div>
           )}
         </div>
