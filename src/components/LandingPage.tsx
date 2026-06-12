@@ -366,7 +366,7 @@ export function LandingPage({
       <div className={`absolute bottom-10 ${isRtl ? "left-10" : "right-10"} w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl pointer-events-none`} />
 
       {/* Header */}
-      <header className="max-w-7xl mx-auto w-full flex items-center justify-between py-4 z-10">
+      <header className="max-w-7xl mx-auto w-full flex items-center justify-between py-4 z-30">
         <div 
           className="flex items-center gap-3 cursor-pointer select-none"
           onDoubleClick={onOpenAdmin}
