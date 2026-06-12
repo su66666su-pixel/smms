@@ -18,6 +18,7 @@ import { VideoGrid } from "./components/VideoGrid";
 import { ChatPanel } from "./components/ChatPanel";
 import { ContactsPanel } from "./components/ContactsPanel";
 import { DMsPanel } from "./components/DMsPanel";
+import { FollowingPanel } from "./components/FollowingPanel";
 import { useSignaling } from "./hooks/useSignaling";
 import { getMediaStream } from "./utils/webrtc";
 import { Message, Participant } from "./types";
@@ -274,9 +275,14 @@ export default function App() {
       setRoomTitle(title);
       setRoomId(safeRoomId);
 
-      // Update approved user with their current active UID
+      // Update approved user with their current active UID and live room details
       const userDocRef = doc(db, "users", name);
-      await setDoc(userDocRef, { uid }, { merge: true });
+      await setDoc(userDocRef, { 
+        uid,
+        currentRoomId: safeRoomId,
+        currentRoomTitle: title,
+        lastActive: new Date().toISOString()
+      }, { merge: true });
       try {
         const uSnap = await getDoc(userDocRef);
         if (uSnap.exists()) {
@@ -563,6 +569,7 @@ export default function App() {
     if (window.confirm("هل أنت متأكد من رغبتك في مغادرة الغرفة وإنهاء الجلسة؟")) {
       const uId = currentUser?.uid;
       const rId = roomId;
+      const oldName = currentUser?.name;
       
       // Reset State
       setCurrentUser(null);
@@ -582,6 +589,17 @@ export default function App() {
         try {
           await deleteDoc(doc(db, "rooms", rId, "participants", uId));
           await deleteParticipantFromSupabase(rId, uId);
+        } catch (e) {}
+      }
+
+      // Clear active room in users collection
+      if (oldName) {
+        try {
+          await setDoc(doc(db, "users", oldName), {
+            currentRoomId: null,
+            currentRoomTitle: null,
+            lastActive: new Date().toISOString()
+          }, { merge: true });
         } catch (e) {}
       }
     }
@@ -885,6 +903,50 @@ export default function App() {
 
         {/* Right Column: Dynamic Text Chat & Contacts Directory */}
         <div className="lg:col-span-4 min-h-[450px] lg:min-h-0 flex flex-col gap-4">
+          
+          {/* Following Quick Communication Panel */}
+          {currentUser && (
+            <FollowingPanel
+              currentUsername={currentUser.name}
+              currentRoomId={roomId}
+              currentRoomTitle={roomTitle}
+              onJoinRoom={(targetTitle) => {
+                if (currentUser) {
+                  const confirmed = window.confirm(
+                    lang === "ar" 
+                      ? `هل ترغب في مغادرة هذه الغرفة والانتقال الفوري لغرفة "${targetTitle}"؟` 
+                      : `Are you sure you want to leave this room and join "${targetTitle}"?`
+                  );
+                  if (confirmed) {
+                    stopStreams();
+                    const oldRoomId = roomId;
+                    const oldUid = currentUser.uid;
+                    
+                    if (oldRoomId && oldUid) {
+                      deleteDoc(doc(db, "rooms", oldRoomId, "participants", oldUid)).catch(() => {});
+                    }
+                    
+                    const safeRoomId = targetTitle.trim().toLowerCase().replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g, "-");
+                    setRoomTitle(targetTitle);
+                    setRoomId(safeRoomId);
+                    setMessages([]);
+                    setParticipants([]);
+                    if (callState !== "idle") {
+                      endCall();
+                    }
+                    
+                    executeActualJoin(targetTitle, currentUser.name, currentUser.avatarColor || "bg-indigo-650");
+                  }
+                }
+              }}
+              onSwitchTab={(targetTab) => {
+                setRightPanelTab(targetTab);
+              }}
+              t={t}
+              lang={lang}
+            />
+          )}
+
           {/* Tab Selection */}
           <div className="bg-white border border-slate-200/80 p-1 rounded-2xl flex gap-1 shadow-sm shrink-0" dir={isRtl ? "rtl" : "ltr"}>
             <button
