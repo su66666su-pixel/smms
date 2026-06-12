@@ -11,6 +11,10 @@ import {
   Copy,
   Check,
   Award,
+  ShieldAlert,
+  MoreVertical,
+  Plus,
+  Unlock,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { CallSession } from "../types";
@@ -61,12 +65,24 @@ export function VideoGrid({
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const [copied, setCopied] = React.useState(false);
 
-  const isRtl = lang === "ar" || lang === "ur";
-
   // WhatsApp-style calling states & details
   const [internalStatus, setInternalStatus] = React.useState<"idle" | "connecting" | "ringing" | "connected" | "rejected" | "ended">("idle");
   const [prevCallState, setPrevCallState] = React.useState<typeof callState>("idle");
   const [lastRemoteName, setLastRemoteName] = React.useState<string>("");
+  const [isBlocked, setIsBlocked] = React.useState(false);
+  const [showMoreMenu, setShowMoreMenu] = React.useState(false);
+
+  const isRtl = lang === "ar" || lang === "ur";
+  const isArabic = lang === "ar" || lang === "ur";
+  const audioCallLabel = isArabic ? "اتصال صوتي" : "Audio Call";
+  const videoCallLabel = isArabic ? "اتصال مرئي" : "Video Call";
+  const addParticipantLabel = isArabic ? "إضافة مشارك" : "Add Participant";
+  const blockLabel = isBlocked 
+    ? (isArabic ? "إلغاء الحظر" : "Unblock")
+    : (isArabic ? "حظر" : "Block/Ban");
+  const moreLabel = isArabic ? "المزيد" : "More";
+  const endBroadcastLabel = isArabic ? "انهاء البث" : "End Broadcast";
+  const endCallLabel = isArabic ? "انهاء المكالمة" : "End Call";
 
   function getAvatarColorAndInitials(name: string) {
     if (!name) return { initials: "👤", bgClass: "bg-gradient-to-tr from-indigo-700 to-purple-600 shadow-indigo-505/30" };
@@ -249,7 +265,27 @@ export function VideoGrid({
 
                {/* Remote Stream Window */}
         <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl overflow-hidden relative group shadow-md flex items-center justify-center">
-          {callState === "connected" && remoteStream ? (
+          {isBlocked ? (
+            <div className="text-center p-6 flex flex-col items-center gap-3 font-sans z-25 relative">
+              <div className="w-16 h-16 rounded-full bg-red-950/45 border border-red-500/30 flex items-center justify-center text-red-500">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-rose-500">{isRtl ? "🛡️ تم حظر المستخدم" : "🛡️ User Blocked"}</p>
+                <p className="text-2xs text-slate-400 mt-1 max-w-[200px] mx-auto leading-relaxed">
+                  {isRtl ? "تم حجب بث الصوت والفيديو مؤقتاً لهذا المشارك." : "Video and audio streams are temporarily blocked."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsBlocked(false)}
+                  className="mt-3 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xxs rounded-xl transition-all cursor-pointer shadow-md inline-flex items-center gap-1.5"
+                >
+                  <Unlock className="w-3 h-3" />
+                  <span>{isRtl ? "إلغاء الحظر" : "Unblock"}</span>
+                </button>
+              </div>
+            </div>
+          ) : callState === "connected" && remoteStream ? (
             <>
               <video
                 ref={remoteVideoRef}
@@ -389,63 +425,167 @@ export function VideoGrid({
             </div>
           )}
         </div>
-      </div>
 
-      {/* Call Floating Action Overlays Controls / Dashboard */}
-      <div className="bg-[#172033] border border-slate-700 rounded-2xl p-4 flex justify-center items-center gap-4 shadow-lg shrink-0">
-        {/* Toggle Muted state */}
-        <button
-          onClick={onToggleMute}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-            isMuted
-              ? "bg-red-600/30 border-red-500/40 text-red-400"
-              : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
-          }`}
-          title={isMuted ? t("audioOff") : t("audioOn")}
-        >
-          {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
-
-        {/* Toggle Video state */}
-        <button
-          onClick={onToggleVideo}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-            isVideoOff
-              ? "bg-red-600/30 border-red-500/40 text-red-400"
-              : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
-          }`}
-          title={isVideoOff ? t("videoOff") : t("videoOn")}
-        >
-          {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-        </button>
-
-        {/* Screen sharing button */}
-        <button
-          onClick={onToggleScreenShare}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-            isScreenSharing
-              ? "bg-indigo-600/40 border-indigo-500/45 text-indigo-300"
-              : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
-          }`}
-          title={isScreenSharing ? t("activeScreenSharing") : t("shareFullScreen")}
-        >
-          <Tv className="w-5 h-5" />
-        </button>
-
-        {/* Separation vertical line */}
-        <div className="w-[1px] h-8 bg-slate-700" />
-
-        {/* Red emergency drop call button */}
-        {callState !== "idle" && (
+        {/* Call Floating Action Overlays Controls / Dashboard (HUD) - Floating over the Video */}
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-wrap items-center justify-center gap-2 md:gap-3 bg-slate-950/85 backdrop-blur-md border border-slate-800 shadow-2xl p-2.5 px-4 rounded-2xl w-[94%] sm:w-auto max-w-[96%] transition-all duration-300">
+          
+          {/* 1. 📞 Audio Call (اتصال صوتي) */}
           <button
-            onClick={onEndCall}
-            className="p-3.5 rounded-xl bg-red-650 hover:bg-red-700 text-white font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer font-sans"
-            title={t("endVideoCall")}
+            type="button"
+            onClick={callState !== "idle" ? onToggleMute : onStartCall}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold ${
+              isMuted && callState !== "idle"
+                ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
+                : "bg-emerald-600/20 text-emerald-400 border border-emerald-550/30 hover:bg-emerald-600/30"
+            }`}
+            title={audioCallLabel}
           >
-            <PhoneOff className="w-5 h-5" />
-            <span className="hidden sm:inline text-xs mt-0.5">{t("endCallBtn")}</span>
+            <span className="text-sm">📞</span>
+            <span>{audioCallLabel}</span>
           </button>
-        )}
+
+          {/* 2. 🎥 Video Call (اتصال مرئي) */}
+          <button
+            type="button"
+            onClick={callState !== "idle" ? onToggleVideo : onStartCall}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold ${
+              isVideoOff && callState !== "idle"
+                ? "bg-red-500/30 text-red-400 border border-red-505/40 hover:bg-red-500/45"
+                : "bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30"
+            }`}
+            title={videoCallLabel}
+          >
+            <span className="text-sm">🎥</span>
+            <span>{videoCallLabel}</span>
+          </button>
+
+          {/* 3. ➕ Add Participant (إضافة مشارك) */}
+          <button
+            type="button"
+            onClick={copyRoomLink}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-805 text-slate-200 hover:bg-slate-850 transition-all cursor-pointer text-xs font-bold active:scale-95"
+            title={addParticipantLabel}
+          >
+            <span className="text-xs">➕</span>
+            <span>{copied ? (isArabic ? "تم النسخ!" : "Link Copied!") : addParticipantLabel}</span>
+          </button>
+
+          {/* 4. 🛡️ Block (حظر) */}
+          <button
+            type="button"
+            onClick={() => setIsBlocked(!isBlocked)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold ${
+              isBlocked
+                ? "bg-rose-650 text-white border border-rose-600 hover:bg-rose-700 animate-pulse"
+                : "bg-amber-600/20 text-amber-500 border border-amber-555/30 hover:bg-amber-655/35"
+            }`}
+            title={blockLabel}
+          >
+            <span className="text-sm">🛡️</span>
+            <span>{blockLabel}</span>
+          </button>
+
+          {/* 5. ⋮ More (المزيد) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className={`flex items-center gap-1 px-2.5 py-2 rounded-xl border transition-all cursor-pointer text-xs font-bold ${
+                showMoreMenu
+                  ? "bg-indigo-650 border-indigo-505 text-white"
+                  : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+              }`}
+              title={moreLabel}
+            >
+              <span className="text-sm font-bold">⋮</span>
+              <span>{moreLabel}</span>
+            </button>
+            
+            {showMoreMenu && (
+              <div className={`absolute bottom-11 ${isRtl ? "right-0" : "left-0"} bg-slate-950 border border-slate-800 rounded-xl p-2 w-48 shadow-2xl z-40 flex flex-col gap-1 text-[11px]`}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleScreenShare();
+                    setShowMoreMenu(false);
+                  }}
+                  className={`w-full text-right px-3 py-2 rounded-lg hover:bg-slate-900 flex items-center gap-2 cursor-pointer transition-colors ${
+                    isScreenSharing ? "text-indigo-400 font-bold" : "text-slate-300"
+                  }`}
+                >
+                  <span>🖥️</span>
+                  <span>{isArabic ? "مشاركة الشاشة" : "Share Screen"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyRoomLink();
+                    setShowMoreMenu(false);
+                  }}
+                  className="w-full text-right px-3 py-2 text-slate-300 rounded-lg hover:bg-slate-900 flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span>📋</span>
+                  <span>{isArabic ? "نسخ رابط الغرفة" : "Copy Room Link"}</span>
+                </button>
+                <div className="border-t border-slate-900 my-1" />
+                <div className="px-3 py-1 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-left">
+                  {isArabic ? "المعلومات التقنية" : "Technical info"}
+                </div>
+                <div className="px-3 py-1.5 text-slate-450 font-mono text-[9px] flex flex-col gap-0.5 text-left">
+                  <div>Room: {roomTitle}</div>
+                  <div>Status: {internalStatus}</div>
+                  <div>RTC: HD Quality</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 6. End Broadcast (انهاء البث) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (isScreenSharing) {
+                onToggleScreenShare();
+              } else if (!isVideoOff) {
+                onToggleVideo();
+              }
+            }}
+            disabled={!isScreenSharing && isVideoOff}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all font-bold text-xs cursor-pointer ${
+              isScreenSharing || !isVideoOff
+                ? "bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600/35"
+                : "opacity-40 cursor-not-allowed bg-slate-900 border border-slate-800 text-slate-500"
+            }`}
+            title={endBroadcastLabel}
+          >
+            <span className="text-sm">📡</span>
+            <span>{endBroadcastLabel}</span>
+          </button>
+
+          {/* 7. End Call (انهاء المكالمة) */}
+          {callState !== "idle" ? (
+            <button
+              type="button"
+              onClick={onEndCall}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-650 border border-red-600 hover:bg-red-700 hover:scale-102 text-white transition-all cursor-pointer text-xs font-bold"
+              title={endCallLabel}
+            >
+              <span className="text-sm">❌</span>
+              <span>{endCallLabel}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 opacity-40 cursor-not-allowed text-xs font-bold"
+              title={endCallLabel}
+            >
+              <span className="text-sm">❌</span>
+              <span>{endCallLabel}</span>
+            </button>
+          )}
+
+        </div>
       </div>
     </div>
   );

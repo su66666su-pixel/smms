@@ -274,16 +274,16 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
   );
 
   return (
-    <div className={`flex flex-col h-full bg-white border rounded-3xl overflow-hidden relative shadow-sm transition-all duration-300 ${isRtl ? "text-right" : "text-left"} ${shouldShake ? "animate-subtle-shake border-indigo-400 ring-2 ring-indigo-200" : "border-slate-200"}`}>
+    <div className={`flex flex-col h-full bg-white dark:bg-[#151f32] border rounded-3xl overflow-hidden relative shadow-sm transition-all duration-300 ${isRtl ? "text-right" : "text-left"} ${shouldShake ? "animate-subtle-shake border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900/40" : "border-slate-200 dark:border-slate-800"}`}>
       
       {/* 1. CHAT THREAD VIEW SCREEN */}
       {activePartner ? (
         <div className="flex flex-col h-full min-h-0">
           {/* Active DM Header */}
-          <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
             <button 
               onClick={() => setActivePartner(null)}
-              className="p-1.5 hover:bg-slate-200 rounded-xl text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1 cursor-pointer"
+              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all flex items-center gap-1 cursor-pointer"
             >
               <ChevronLeft className={`w-4 h-4 ${isRtl ? "rotate-180" : ""}`} />
               <span className="text-2xs font-extrabold">{t("btnBack")}</span>
@@ -291,13 +291,13 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
 
             <div className={`flex items-center gap-2.5 flex-1 justify-end ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
               <div className={isRtl ? "text-right" : "text-left"}>
-                <h4 className="text-xs font-black text-slate-800 leading-normal">{activePartner}</h4>
+                <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 leading-normal">{activePartner}</h4>
                 <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
                   {t("secureDirectChat")}
                 </div>
               </div>
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-sm shrink-0 border border-slate-200">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-sm shrink-0 border border-slate-200 dark:border-slate-800">
                 {activePartner.substring(0, 2).toUpperCase()}
               </div>
             </div>
@@ -332,10 +332,10 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                       <div
                         className={`rounded-2xl p-3 text-xs leading-relaxed shadow-sm relative border ${
                           isDeleted
-                            ? "bg-slate-100 text-slate-450 border-slate-200 italic"
+                            ? "bg-slate-100 dark:bg-slate-805 text-slate-450 dark:text-slate-500 border-slate-200 dark:border-slate-700 italic"
                             : isMe
                               ? "bg-indigo-600 text-white border-indigo-700/50 rounded-tr-none"
-                              : "bg-white border-slate-200 text-slate-800 rounded-tl-none"
+                              : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-none"
                         } ${msg.id === shakingMessageId ? "border-indigo-400 bg-indigo-50/10 shadow-md" : ""}`}
                       >
                         {/* Message body */}
@@ -439,10 +439,10 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="w-10 h-10 shrink-0 rounded-xl border border-slate-250 bg-white hover:bg-slate-50 text-slate-550 flex items-center justify-center transition-all cursor-pointer relative"
+                className="w-10 h-10 shrink-0 rounded-xl border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-550 dark:text-slate-400 flex items-center justify-center transition-all cursor-pointer relative"
                 title={t("attachMediaFile")}
               >
-                <UploadCloud className="w-5 h-5 text-indigo-600" />
+                <UploadCloud className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -456,7 +456,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={t("typeDirectMsgPlaceholder")}
-                className={`flex-1 bg-white border border-slate-250 focus:border-indigo-600 outline-none rounded-xl px-3 text-xs leading-none transition-all font-sans py-2.5 ${isRtl ? "text-right" : "text-left"}`}
+                className={`flex-1 bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-705 focus:border-indigo-650 dark:focus:border-indigo-500 outline-none rounded-xl px-3 text-xs leading-none transition-all font-sans py-2.5 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 ${isRtl ? "text-right" : "text-left"}`}
               />
 
               <button
@@ -475,25 +475,25 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
         <div className="flex flex-col h-full min-h-0">
           
           {/* Header of Sidebar */}
-          <div className="bg-slate-55 bg-slate-50 border-b border-slate-200 p-4">
-            <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
+          <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4">
+            <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block animate-pulse shrink-0" />
               {t("privateDmsTitle")}
             </h3>
-            <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">
               {t("privateDmsDesc")}
             </p>
           </div>
 
           {/* Quick Search For Contact */}
-          <div className="p-3 border-b border-slate-100 bg-white">
+          <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#151f32]">
             <div className="relative">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("searchContactDmPlaceholder")}
-                className={`w-full bg-slate-50 border border-slate-200 focus:bg-white outline-none rounded-xl py-2 px-3.5 text-xs text-slate-800 placeholder-slate-400 transition-all ${isRtl ? "text-right" : "text-left"}`}
+                className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none rounded-xl py-2 px-3.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all ${isRtl ? "text-right" : "text-left"}`}
               />
               <Search className={`absolute w-3.5 h-3.5 text-slate-400 top-2.5 ${isRtl ? "left-3" : "right-3"}`} />
             </div>
@@ -559,20 +559,20 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                           onClick={() => setActivePartner(conv.partner)}
                           className={`w-full flex items-center justify-between p-3 border rounded-2xl transition-all cursor-pointer text-xs font-sans text-left ${
                             conv.partner === shakingPartner
-                              ? "animate-subtle-shake border-indigo-400 bg-indigo-50/35 ring-2 ring-indigo-200"
-                              : "border-slate-100 hover:border-indigo-100 bg-white hover:bg-slate-50"
+                              ? "animate-subtle-shake border-indigo-400 dark:border-indigo-500 bg-indigo-50/35 dark:bg-indigo-950/20 ring-2 ring-indigo-200 dark:ring-indigo-900/30"
+                              : "border-slate-100 dark:border-slate-805 hover:border-indigo-100 dark:hover:border-indigo-800 bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-105 to-indigo-500 text-indigo-750 flex items-center justify-center font-black text-xs shrink-0 self-center">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-100 to-indigo-500 text-indigo-950 dark:text-slate-100 flex items-center justify-center font-black text-xs shrink-0 self-center">
                               {conv.partner.substring(0, 2).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between">
-                                <p className="font-extrabold text-slate-805 truncate text-left">{conv.partner}</p>
-                                <span className="text-[8px] text-slate-400 font-mono shrink-0 ml-1.5">{displayTime}</span>
+                                <p className="font-extrabold text-slate-805 dark:text-slate-100 truncate text-left">{conv.partner}</p>
+                                <span className="text-[8px] text-slate-400 dark:text-slate-500 font-mono shrink-0 ml-1.5">{displayTime}</span>
                               </div>
-                              <p className="text-xxs text-slate-450 truncate mt-0.5">
+                              <p className="text-xxs text-slate-450 dark:text-slate-400 truncate mt-0.5">
                                 {isSenderMe ? t("dmYouPrefix") : ""}
                                 {conv.lastMessage.file ? t("dmAttachedDocument") : conv.lastMessage.text}
                               </p>

@@ -93,9 +93,15 @@
         "nickname": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "avatar": { "type": "string" },
+        "avatarColor": { "type": "string" },
+        "accountType": { "type": "string", "enum": ["public", "private"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["nickname", "status", "createdAt"]
+      "required": ["nickname", "status", "createdAt", "email", "phone"]
     },
     "Follow": {
       "title": "Follow",

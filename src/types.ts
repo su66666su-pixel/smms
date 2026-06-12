@@ -55,3 +55,30 @@ export interface IceCandidateData {
   sdpMid: string | null;
   sdpMLineIndex: number | null;
 }
+
+export interface User {
+  nickname: string;
+  password?: string;
+  displayName?: string;
+  email: string;
+  phone: string;
+  avatar?: string; // base64 or custom avatar image
+  avatarColor?: string; // custom design color background
+  privacy: "public" | "private";
+  status: "pending" | "approved" | "rejected";
+  role?: "user" | "admin";
+  uid?: string;
+  createdAt: string;
+  lastActive?: string;
+  currentRoomId?: string | null;
+  currentRoomTitle?: string | null;
+}
+
+export interface Follow {
+  id?: string;
+  sender: string;
+  recipient: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+}

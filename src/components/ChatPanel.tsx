@@ -34,6 +34,7 @@ interface ChatPanelProps {
   participants?: Participant[];
   t: (key: string, replacements?: Record<string, string | number>) => string;
   lang: LanguageCode;
+  onViewProfile?: (username: string) => void;
 }
 
 export function ChatPanel({ 
@@ -43,7 +44,8 @@ export function ChatPanel({
   roomId, 
   participants = [],
   t,
-  lang
+  lang,
+  onViewProfile
 }: ChatPanelProps) {
   const [inputText, setInputText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -193,14 +195,14 @@ export function ChatPanel({
   const otherParticipants = participants.filter(p => p.uid !== userId);
 
   return (
-    <div className={`flex flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden relative shadow-sm ${isRtl ? "text-right" : "text-left"}`}>
+    <div className={`flex flex-col h-full bg-white dark:bg-[#151f32] border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden relative shadow-sm transition-colors duration-300 ${isRtl ? "text-right" : "text-left"}`}>
       {/* Panel Header */}
-      <div className={`bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+      <div className={`bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
         <div className="flex items-center gap-2">
-          <Bot className="w-5 h-5 text-blue-600 font-bold" />
+          <Bot className="w-5 h-5 text-blue-600 dark:text-indigo-400 font-bold" />
           <div>
-            <h3 className="text-xs font-bold text-slate-800">{t("chatPanelTitle")}</h3>
-            <p className="text-3xs text-slate-400 mt-0.5">{t("chatPanelSub")}</p>
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">{t("chatPanelTitle")}</h3>
+            <p className="text-3xs text-slate-400 dark:text-slate-500 mt-0.5">{t("chatPanelSub")}</p>
           </div>
         </div>
 
@@ -208,7 +210,7 @@ export function ChatPanel({
         <button
           onClick={askAiSummary}
           disabled={visibleMessages.length === 0 || isAiLoading}
-          className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-100 disabled:opacity-40 text-indigo-700 text-[10px] px-3 py-1.5 rounded-xl transition-all font-bold disabled:cursor-not-allowed cursor-pointer"
+          className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/60 border border-indigo-100 dark:border-indigo-900/50 disabled:opacity-40 text-indigo-700 dark:text-indigo-300 text-[10px] px-3 py-1.5 rounded-xl transition-all font-bold disabled:cursor-not-allowed cursor-pointer"
           title={t("aiSummaryTooltip")}
         >
           {isAiLoading ? (
@@ -275,25 +277,33 @@ export function ChatPanel({
                 className={`flex gap-2.5 max-w-[85%] ${isMe ? "self-end flex-row-reverse text-right" : "self-start flex-row text-left"}`}
               >
                 {/* Avatar sphere */}
-                <div
-                  className={`w-8.5 h-8.5 rounded-xl shrink-0 flex items-center justify-center text-white text-xs font-bold ${
+                <button
+                  type="button"
+                  onClick={() => onViewProfile?.(msg.senderName)}
+                  disabled={!onViewProfile}
+                  className={`w-8.5 h-8.5 rounded-xl shrink-0 flex items-center justify-center text-white text-xs font-bold transition-all hover:opacity-80 active:scale-95 cursor-pointer ${
                     isWhisper ? "bg-amber-500 border border-amber-300" : (msg.senderAvatar || "bg-indigo-600")
                   }`}
                 >
                   {isWhisper ? <Lock className="w-3.5 h-3.5" /> : msg.senderName.charAt(0).toUpperCase()}
-                </div>
+                </button>
 
                 <div className="flex flex-col gap-1 min-w-0">
                   {/* Sender nickname & time */}
                   <div className={`flex items-center gap-1.5 justify-start px-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                    <span className="text-xxs font-extrabold text-slate-755 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onViewProfile?.(msg.senderName)}
+                      disabled={!onViewProfile}
+                      className="text-xxs font-extrabold text-slate-755 hover:text-indigo-600 hover:underline flex items-center gap-1 active:scale-95 cursor-pointer text-left"
+                    >
                       {msg.senderName === "1007363904" && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/25 text-amber-600 rounded text-[9px] font-black shrink-0">
                           👑 {t("superAdminLabel")}
                         </span>
                       )}
                       <span>{msg.senderName}</span>
-                    </span>
+                    </button>
                     <span className="text-[9px] text-slate-400 font-mono">{msg.createdAt}</span>
                     {isWhisper && (
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded text-[9px] font-black shrink-0">
@@ -307,11 +317,11 @@ export function ChatPanel({
                     className={`rounded-2xl p-3 text-xs leading-relaxed ${
                       isWhisper 
                         ? (isMe 
-                            ? "bg-amber-50 border border-amber-200 text-amber-900 rounded-tr-none shadow-xs" 
-                            : "bg-amber-50/90 border border-amber-200 text-amber-900 rounded-tl-none shadow-xs")
+                            ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-200 rounded-tr-none shadow-xs" 
+                            : "bg-amber-50/90 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-200 rounded-tl-none shadow-xs")
                         : (isMe
                             ? "bg-indigo-600 text-white rounded-tr-none shadow-sm font-sans"
-                            : "bg-slate-100 border border-slate-205 text-slate-850 rounded-tl-none shadow-sm font-sans")
+                            : "bg-slate-100 dark:bg-slate-800 border border-slate-205 dark:border-slate-700 text-slate-850 dark:text-slate-100 rounded-tl-none shadow-sm font-sans")
                     }`}
                   >
                     {/* Private message context notification banner */}
@@ -388,7 +398,7 @@ export function ChatPanel({
       </div>
 
       {/* Input Form area */}
-      <div className="bg-slate-50 border-t border-slate-200 p-4">
+      <div className="bg-slate-50 dark:bg-[#101726]/85 border-t border-slate-200 dark:border-slate-800 p-4">
         {/* Render drag drop active feedback overlay */}
         {dragActive && (
           <div
@@ -458,7 +468,7 @@ export function ChatPanel({
               className={`py-1.5 px-3 rounded-lg text-3xs font-extrabold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                 selectedRecipient === null
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
             >
               <Globe className="w-3 h-3" />
@@ -477,7 +487,7 @@ export function ChatPanel({
                     className={`py-1.5 px-3 rounded-lg text-3xs font-extrabold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                       isTargetSelected
                         ? "bg-amber-500 text-white shadow-xs"
-                        : "bg-white border border-slate-202 text-slate-650 hover:bg-slate-105 hover:border-slate-300"
+                        : "bg-white dark:bg-slate-900 border border-slate-202 dark:border-slate-800 text-slate-650 dark:text-slate-350 hover:bg-slate-105 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                     }`}
                   >
                     <Lock className="w-3 h-3" />
@@ -504,10 +514,10 @@ export function ChatPanel({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="w-11 h-11 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 shadow-sm transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
+            className="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-805 dark:text-slate-400 shadow-sm transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
             title={t("uploadFileOrImage")}
           >
-            <UploadCloud className="w-5 h-5" />
+            <UploadCloud className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </button>
           <input
             ref={fileInputRef}
@@ -526,10 +536,10 @@ export function ChatPanel({
                 ? t("placeholderWhisper", { name: selectedRecipient.name })
                 : t("placeholderPublic")
             }
-            className={`flex-1 bg-white border outline-none rounded-xl px-4 py-3 text-xs text-slate-850 placeholder-slate-400 transition-all font-sans ${isRtl ? "text-right" : "text-left"} ${
+            className={`flex-1 bg-white dark:bg-slate-800 border outline-none rounded-xl px-4 py-3 text-xs text-slate-850 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all font-sans ${isRtl ? "text-right" : "text-left"} ${
               selectedRecipient
-                ? "border-amber-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-amber-50/10"
-                : "border-slate-200 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                ? "border-amber-350 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-amber-50/10"
+                : "border-slate-200 dark:border-slate-700 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
             }`}
           />
 

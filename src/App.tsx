@@ -16,13 +16,15 @@ import { auth, db, handleFirestoreError, OperationType } from "./firebase";
 import { LandingPage } from "./components/LandingPage";
 import { VideoGrid } from "./components/VideoGrid";
 import { ChatPanel } from "./components/ChatPanel";
+import { UserProfileModal } from "./components/UserProfileModal";
+import { MandatoryProfileGates } from "./components/MandatoryProfileGates";
 import { ContactsPanel } from "./components/ContactsPanel";
 import { DMsPanel } from "./components/DMsPanel";
 import { FollowingPanel } from "./components/FollowingPanel";
 import { useSignaling } from "./hooks/useSignaling";
 import { getMediaStream } from "./utils/webrtc";
 import { Message, Participant } from "./types";
-import { LogOut, Users, Video, Wifi, WifiOff, Clock, XCircle, MessageSquare, Lock } from "lucide-react";
+import { LogOut, Users, Video, Wifi, WifiOff, Clock, XCircle, MessageSquare, Lock, Sun, Moon } from "lucide-react";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { translations, LANGUAGES, LanguageCode } from "./utils/translations";
 import { LanguageSelector } from "./components/LanguageSelector";
@@ -39,6 +41,23 @@ export default function App() {
   const [lang, setLang] = useState<LanguageCode>(() => {
     return (localStorage.getItem("snns_lang") as LanguageCode) || "ar";
   });
+
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    return (localStorage.getItem("snns_theme") as "light" | "dark") || "light";
+  });
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("snns_theme", theme);
+  }, [theme]);
 
   const t = (key: string, replacements?: Record<string, string | number>) => {
     let str = translations[lang]?.[key] || translations["en"]?.[key] || translations["ar"]?.[key] || key;
@@ -63,6 +82,23 @@ export default function App() {
     name: string;
     avatarColor: string;
   } | null>(null);
+
+  const [dbUser, setDbUser] = useState<any | null>(null);
+  const [selectedProfileUsername, setSelectedProfileUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!currentUser?.name) {
+      setDbUser(null);
+      return;
+    }
+    const docRef = doc(db, "users", currentUser.name);
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        setDbUser(snap.data());
+      }
+    });
+    return () => unsub();
+  }, [currentUser]);
 
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomTitle, setRoomTitle] = useState("");
@@ -752,34 +788,76 @@ export default function App() {
     );
   }
 
+  // Mandatory Profile Gate (if email or phone is missing in firestore)
+  if (currentUser && dbUser && (!dbUser.email || !dbUser.phone)) {
+    return (
+      <MandatoryProfileGates
+        username={currentUser.name}
+        lang={lang}
+        t={t}
+      />
+    );
+  }
+
   const isRtl = lang === "ar" || lang === "ur";
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans transition-colors duration-300 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-300 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
       {/* Decorative starry backdrop */}
-      <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-blue-100/20 to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-blue-100/20 to-transparent dark:from-indigo-950/20 pointer-events-none" />
 
       {/* Main App Bar */}
-      <header className="bg-white border-b border-slate-200/80 p-4 sticky top-0 z-30 shadow-sm">
+      <header className="bg-white dark:bg-[#151f32] border-b border-slate-200/80 dark:border-slate-800 p-4 sticky top-0 z-30 shadow-sm transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-xl border border-blue-105">
-              <Video className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-105 dark:border-blue-900/30">
+              <Video className="w-5 h-5 text-blue-600 dark:text-indigo-400" />
             </div>
             <div className={isRtl ? "text-right" : "text-left"}>
-              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 {roomTitle}
-                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-650 rounded-md font-mono shrink-0">
+                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 border border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-slate-650 dark:text-slate-350 rounded-md font-mono shrink-0">
                   {t("connectedParticipantsCount", { count: participants.length })}
                 </span>
               </h2>
-              <p className="text-2xs text-slate-400 mt-0.5 font-mono">ROOM_ID: {roomId}</p>
+              <p className="text-2xs text-slate-400 dark:text-slate-500 mt-0.5 font-mono">ROOM_ID: {roomId}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-4">
+            {/* My Profile Button */}
+            {currentUser && (
+              <button
+                id="my_profile_btn_header"
+                type="button"
+                onClick={() => setSelectedProfileUsername(currentUser.name)}
+                className="p-2.5 rounded-xl border-2 transition-all shadow-md cursor-pointer flex items-center justify-center bg-white dark:bg-slate-900 border-indigo-400/80 dark:border-indigo-900/50 text-indigo-750 dark:text-indigo-200 hover:bg-slate-50 dark:hover:bg-slate-850 gap-1.5"
+                title={t("myProfileBtn") || "الملف الشخصي"}
+              >
+                <div className={`w-4 h-4 rounded-full ${currentUser.avatarColor || "bg-indigo-600"} flex items-center justify-center text-[8px] text-white shrink-0 font-extrabold uppercase`}>
+                  {currentUser.name.charAt(0)}
+                </div>
+                <span className="hidden leading-none sm:inline text-2xs font-extrabold">{currentUser.name}</span>
+              </button>
+            )}
+
             {/* Multi-language Selector in workspace header */}
-            <LanguageSelector currentLanguage={lang} onLanguageChange={setLang} dark={false} />
+            <LanguageSelector currentLanguage={lang} onLanguageChange={setLang} dark={theme === "dark"} />
+
+            {/* Theme Toggle Button */}
+            <button
+              id="theme_toggle_btn"
+              type="button"
+              onClick={toggleTheme}
+              className="p-2.5 rounded-xl border-2 transition-all shadow-md cursor-pointer flex items-center justify-center bg-white dark:bg-slate-900 border-blue-400/80 dark:border-indigo-900/50 text-blue-950 dark:text-indigo-150 hover:bg-slate-50 dark:hover:bg-slate-850"
+              title={theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}
+            >
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4 text-amber-550 animate-pulse" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600" />
+              )}
+            </button>
 
             {/* Net connection status badge */}
             <div
@@ -863,9 +941,11 @@ export default function App() {
               {participants.map((part) => {
                 const isRecentSender = !!recentSenders[part.uid];
                 return (
-                  <div
+                  <button
                     key={part.uid}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 relative ${
+                    type="button"
+                    onClick={() => setSelectedProfileUsername(part.name)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 relative cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 ${
                       isRecentSender
                         ? "bg-indigo-50/90 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.55)] scale-105"
                         : "bg-slate-50 border-slate-200"
@@ -894,7 +974,7 @@ export default function App() {
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                       </span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -946,13 +1026,13 @@ export default function App() {
           )}
 
           {/* Tab Selection */}
-          <div className="bg-white border border-slate-200/80 p-1 rounded-2xl flex gap-1 shadow-sm shrink-0" dir={isRtl ? "rtl" : "ltr"}>
+          <div className="bg-white dark:bg-[#151f32] border border-slate-200/80 dark:border-slate-800 p-1 rounded-2xl flex gap-1 shadow-sm shrink-0 transition-colors duration-300" dir={isRtl ? "rtl" : "ltr"}>
             <button
               onClick={() => setRightPanelTab("chat")}
               className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 rightPanelTab === "chat"
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  : "bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
@@ -963,7 +1043,7 @@ export default function App() {
               className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 rightPanelTab === "dms"
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  : "bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <Lock className="w-3.5 h-3.5" />
@@ -974,7 +1054,7 @@ export default function App() {
               className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 rightPanelTab === "contacts"
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  : "bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -992,6 +1072,7 @@ export default function App() {
                 participants={participants}
                 t={t}
                 lang={lang}
+                onViewProfile={setSelectedProfileUsername}
               />
             ) : rightPanelTab === "contacts" ? (
               <ContactsPanel
@@ -1002,6 +1083,7 @@ export default function App() {
                 currentUserId={currentUser.uid}
                 t={t}
                 lang={lang}
+                onViewProfile={setSelectedProfileUsername}
               />
             ) : (
               <DMsPanel
@@ -1013,6 +1095,16 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {selectedProfileUsername && (
+        <UserProfileModal
+          username={selectedProfileUsername}
+          currentUsername={currentUser.name}
+          onClose={() => setSelectedProfileUsername(null)}
+          lang={lang}
+          t={t}
+        />
+      )}
     </div>
   );
 }

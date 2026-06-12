@@ -62,9 +62,10 @@ export function LandingPage({
 
   const [signupNickname, setSignupNickname] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0].class);
-  const [accountType, setAccountType] = useState<"public" | "private">("public");
+  const [accountType, setAccountType] = useState<"public" | "private">("private");
 
   // Recovery States
   const [recoveryNickname, setRecoveryNickname] = useState("");
@@ -224,10 +225,11 @@ export function LandingPage({
     e.preventDefault();
     const cleanName = signupNickname.trim();
     const email = signupEmail.trim();
+    const phone = signupPhone.trim();
     const password = signupPassword.trim();
 
-    if (!cleanName || !email || !password) {
-      setErrorMessage(lang === "ar" ? "الرجاء إدخال الاسم الكريم والبريد وكلمة المرور." : "Please fill in nickname, email, and password.");
+    if (!cleanName || !email || !phone || !password) {
+      setErrorMessage(lang === "ar" ? "الرجاء إدخال كافة الحقول بما فيها رقم الهاتف للأمان والخصوصية." : "Please fill in nickname, email, phone, and password.");
       return;
     }
 
@@ -252,13 +254,16 @@ export function LandingPage({
       // Create new user credentials
       const newUserPayload = {
         nickname: cleanName,
+        displayName: cleanName,
         email,
+        phone,
         password,
         avatarColor: selectedColor,
         status: "approved", // Fast approval for registered community members
         uid: "",
         createdAt: new Date().toISOString(),
-        accountType: accountType // "public" or "private"
+        accountType: accountType, // "public" or "private"
+        privacy: accountType
       };
 
       await setDoc(userDocRef, newUserPayload);
@@ -612,6 +617,18 @@ export function LandingPage({
                       onChange={(e) => setSignupEmail(e.target.value)}
                       placeholder={t("emailPlaceholder")}
                       className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-3 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-700">{t("phoneLabel") || "رقم الهاتف *"}</label>
+                    <input
+                      type="tel"
+                      required
+                      value={signupPhone}
+                      onChange={(e) => setSignupPhone(e.target.value)}
+                      placeholder={t("phonePlaceholder") || "رقم الجوال للاسترجاع..."}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
