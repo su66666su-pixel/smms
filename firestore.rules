@@ -45,12 +45,15 @@ service cloud.firestore {
 
     function isValidMessage(data) {
       return data.keys().hasAll(['senderId', 'senderName', 'senderAvatar', 'createdAt'])
-        && data.keys().size() <= 6
+        && data.keys().size() <= 10
         && data.senderId is string && (request.auth == null || data.senderId == request.auth.uid)
         && data.senderName is string && data.senderName.size() <= 100
         && data.senderAvatar is string && data.senderAvatar.size() <= 10000
         && (data.createdAt is string || data.createdAt is timestamp)
         && (!data.keys().hasAny(['text']) || (data.text is string && data.text.size() <= 10000))
+        && (!data.keys().hasAny(['isPrivate']) || data.isPrivate is bool)
+        && (!data.keys().hasAny(['recipientId']) || (data.recipientId is string && data.recipientId.size() <= 128))
+        && (!data.keys().hasAny(['recipientName']) || (data.recipientName is string && data.recipientName.size() <= 100))
         && (!data.keys().hasAny(['file']) || (
           data.file is map 
           && data.file.keys().hasAll(['name', 'type', 'dataUrl'])

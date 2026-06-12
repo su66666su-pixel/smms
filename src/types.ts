@@ -28,6 +28,9 @@ export interface Message {
   text?: string;
   createdAt: any;
   file?: FileAttachment;
+  isPrivate?: boolean;
+  recipientId?: string;
+  recipientName?: string;
 }
 
 export interface CallSession {

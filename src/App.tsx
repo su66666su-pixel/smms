@@ -332,6 +332,9 @@ export default function App() {
           text: d.text,
           createdAt: d.createdAt ? new Date(d.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "",
           file: d.file,
+          isPrivate: d.isPrivate,
+          recipientId: d.recipientId,
+          recipientName: d.recipientName,
         });
       });
       setMessages(msgs);
@@ -380,7 +383,13 @@ export default function App() {
   }, [roomId, currentUser]);
 
   // Handle messaging write tasks
-  const handleSendMessage = async (text: string, filePayload?: { name: string; type: string; size?: number; dataUrl: string }) => {
+  const handleSendMessage = async (
+    text: string, 
+    filePayload?: { name: string; type: string; size?: number; dataUrl: string },
+    isPrivate?: boolean,
+    recipientId?: string,
+    recipientName?: string
+  ) => {
     if (!roomId || !currentUser) return;
 
     try {
@@ -396,6 +405,11 @@ export default function App() {
       if (text) payload.text = text;
       if (filePayload) {
         payload.file = filePayload;
+      }
+      if (isPrivate) {
+        payload.isPrivate = true;
+        payload.recipientId = recipientId;
+        payload.recipientName = recipientName;
       }
 
       await addDoc(messagesCollectionRef, payload);
@@ -751,11 +765,15 @@ export default function App() {
                 onSendMessage={handleSendMessage}
                 userId={currentUser.uid}
                 roomId={roomId}
+                participants={participants}
               />
             ) : (
               <ContactsPanel
                 currentUsername={currentUser.name}
                 currentRoomTitle={roomTitle}
+                participants={participants}
+                recentSenders={recentSenders}
+                currentUserId={currentUser.uid}
               />
             )}
           </div>
