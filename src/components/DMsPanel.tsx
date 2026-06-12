@@ -3,7 +3,7 @@ import {
   Send, UploadCloud, FileText, Image as ImageIcon, Download, 
   Trash2, X, Lock, MessageSquare, Users, ChevronLeft, Search, Check, AlertCircle, Clock
 } from "lucide-react";
-import { collection, addDoc, query, where, onSnapshot, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, onSnapshot, getDocs, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
 import { processFileForUpload, downloadBase64File } from "../utils/compressor";
 import { syncMessageToSupabase } from "../supabase";
@@ -31,6 +31,12 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
   const [isLoadingPartners, setIsLoadingPartners] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Shake tracking hooks
+  const prevMessagesLengthRef = useRef<number>(0);
+  const [shouldShake, setShouldShake] = useState(false);
+  const [shakingMessageId, setShakingMessageId] = useState<string | null>(null);
+  const [shakingPartner, setShakingPartner] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -51,6 +57,40 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
  
        // Sort by creation time locally (prevents composite index requirements)
        list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+       // Detect new incoming message from someone else to trigger shake
+       if (list.length > 0 && prevMessagesLengthRef.current > 0 && list.length > prevMessagesLengthRef.current) {
+         const newest = list[list.length - 1];
+         if (newest && newest.sender !== currentUsername) {
+           setShakingMessageId(newest.id || null);
+           setShakingPartner(newest.sender || null);
+           setShouldShake(true);
+
+           // Play standard browser chime or notification if available
+           try {
+             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+             const osc = audioContext.createOscillator();
+             const gain = audioContext.createGain();
+             osc.type = "sine";
+             osc.frequency.setValueAtTime(587.33, audioContext.currentTime); // D5 note
+             osc.frequency.setValueAtTime(880, audioContext.currentTime + 0.12); // A5 note
+             gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+             gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+             osc.connect(gain);
+             gain.connect(audioContext.destination);
+             osc.start();
+             osc.stop(audioContext.currentTime + 0.4);
+           } catch (ae) {}
+
+           setTimeout(() => {
+             setShouldShake(false);
+             setShakingMessageId(null);
+             setShakingPartner(null);
+           }, 850);
+         }
+       }
+
+       prevMessagesLengthRef.current = list.length;
        setAllDmMessages(list);
      }, (error) => {
        console.error("Error loading direct messages: ", error);
@@ -187,6 +227,32 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
     }
   };
 
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!window.confirm(t("confirmDeletePrivateMsg"))) {
+      return;
+    }
+    try {
+      const docRef = doc(db, "direct_messages", msgId);
+      await updateDoc(docRef, {
+        isDeleted: true,
+        text: t("msgDeleted"),
+        file: null
+      });
+
+      try {
+        await syncMessageToSupabase(msgId, `dm_${activeConversationId}`, {
+          text: t("msgDeleted"),
+          file: null
+        });
+      } catch (sbErr) {
+        console.warn("Supabase delete sync skipped:", sbErr);
+      }
+    } catch (err) {
+      console.error("Failed to delete direct message: ", err);
+      alert(t("failedDeletePrivateMsg"));
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -196,7 +262,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
       setSelectedFile(result);
     } catch (err) {
       console.error("Direct message file processing failed:", err);
-      alert(lang === "ar" ? "فشل تجهيز وحفظ هذا الملف للدردشة الخاصة." : "Failed to prepare this file for private chat.");
+      alert(t("failedPrepareDirectFile"));
     } finally {
       setIsUploading(false);
     }
@@ -208,7 +274,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
   );
 
   return (
-    <div className={`flex flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden relative shadow-sm ${isRtl ? "text-right" : "text-left"}`}>
+    <div className={`flex flex-col h-full bg-white border rounded-3xl overflow-hidden relative shadow-sm transition-all duration-300 ${isRtl ? "text-right" : "text-left"} ${shouldShake ? "animate-subtle-shake border-indigo-400 ring-2 ring-indigo-200" : "border-slate-200"}`}>
       
       {/* 1. CHAT THREAD VIEW SCREEN */}
       {activePartner ? (
@@ -220,7 +286,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
               className="p-1.5 hover:bg-slate-200 rounded-xl text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1 cursor-pointer"
             >
               <ChevronLeft className={`w-4 h-4 ${isRtl ? "rotate-180" : ""}`} />
-              <span className="text-2xs font-extrabold">{lang === "ar" ? "رجوع" : "Back"}</span>
+              <span className="text-2xs font-extrabold">{t("btnBack")}</span>
             </button>
 
             <div className={`flex items-center gap-2.5 flex-1 justify-end ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
@@ -228,7 +294,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                 <h4 className="text-xs font-black text-slate-800 leading-normal">{activePartner}</h4>
                 <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                  {lang === "ar" ? "محادثة خاصة آمنة" : "Secure direct chat"}
+                  {t("secureDirectChat")}
                 </div>
               </div>
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-sm shrink-0 border border-slate-200">
@@ -242,39 +308,46 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
             {activeMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-70">
                 <Lock className="w-10 h-10 text-slate-300 mb-3" />
-                <p className="text-xs text-slate-600 font-black">{lang === "ar" ? "بداية محادثة آمنة" : "Start a Secure Conversation"}</p>
+                <p className="text-xs text-slate-600 font-black">{t("startSecureConversationTitle")}</p>
                 <p className="text-[10px] text-slate-450 mt-1 max-w-[240px] leading-relaxed">
-                  {lang === "ar" 
-                    ? "أرسل أول رسالة خاصة الآن. يتم تشفير وتخزين الرسائل المتبادلة محلياً وفورياً." 
-                    : "Send your first message. Chats are kept completely safe and private."}
+                  {t("startSecureConversationDesc")}
                 </p>
               </div>
             ) : (
               activeMessages.map((msg) => {
                 const isMe = msg.sender === currentUsername;
                 const formattedTime = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+                const isDeleted = msg.isDeleted === true;
+                const messageText = isDeleted
+                  ? t("msgDeleted")
+                  : msg.text;
 
                 return (
                   <div
                     key={msg.id}
-                    className={`flex gap-2 max-w-[85%] ${isMe ? "self-end flex-row-reverse text-right" : "self-start flex-row text-left"}`}
+                    className={`flex gap-2 max-w-[85%] group relative items-center ${isMe ? "self-end flex-row-reverse text-right" : "self-start flex-row text-left"} ${msg.id === shakingMessageId ? "animate-subtle-shake" : ""}`}
                   >
                     <div className="flex flex-col gap-0.5 min-w-0">
                       {/* Dialogue Bubble */}
                       <div
                         className={`rounded-2xl p-3 text-xs leading-relaxed shadow-sm relative border ${
-                          isMe
-                            ? "bg-indigo-600 text-white border-indigo-700/50 rounded-tr-none"
-                            : "bg-white border-slate-200 text-slate-800 rounded-tl-none"
-                        }`}
+                          isDeleted
+                            ? "bg-slate-100 text-slate-450 border-slate-200 italic"
+                            : isMe
+                              ? "bg-indigo-600 text-white border-indigo-700/50 rounded-tr-none"
+                              : "bg-white border-slate-200 text-slate-800 rounded-tl-none"
+                        } ${msg.id === shakingMessageId ? "border-indigo-400 bg-indigo-50/10 shadow-md" : ""}`}
                       >
                         {/* Message body */}
-                        {msg.text && (
-                          <p className="whitespace-pre-wrap font-sans break-words">{msg.text}</p>
+                        {(messageText || isDeleted) && (
+                          <div className={`flex items-center gap-1.5 ${isDeleted ? "text-slate-450" : ""}`}>
+                            {isDeleted && <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+                            <p className="whitespace-pre-wrap font-sans break-words">{messageText}</p>
+                          </div>
                         )}
 
                         {/* Message file attachment support */}
-                        {msg.file && (
+                        {msg.file && !isDeleted && (
                           <div className="mt-2 text-slate-900">
                             {msg.file.type.startsWith("image/") ? (
                               <div className="rounded-lg overflow-hidden border border-slate-200 shrink-0 max-w-[190px]">
@@ -316,12 +389,24 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                         )}
                         
                         {/* Time stamp inside */}
-                        <div className={`text-[8.5px] mt-1.5 flex items-center gap-1 justify-end opacity-80 ${isMe ? "text-indigo-200" : "text-slate-400 font-mono"}`}>
+                        <div className={`text-[8.5px] mt-1.5 flex items-center gap-1 justify-end opacity-80 ${isMe && !isDeleted ? "text-indigo-200" : "text-slate-400 font-mono"}`}>
                           <span>{formattedTime}</span>
-                          {isMe && <Check className="w-3 h-3 text-indigo-100 shrink-0" />}
+                          {isMe && !isDeleted && <Check className="w-3 h-3 text-indigo-100 shrink-0" />}
                         </div>
                       </div>
                     </div>
+
+                    {/* Delete button option for the owner of active messages */}
+                    {isMe && !isDeleted && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMessage(msg.id)}
+                        className="p-1 px-1.5 bg-slate-50 hover:bg-slate-200 text-slate-450 hover:text-rose-600 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer text-xxs flex items-center justify-center shrink-0 border border-slate-200"
+                        title={t("deleteMsgForEveryone")}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 );
               })
@@ -355,7 +440,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
                 className="w-10 h-10 shrink-0 rounded-xl border border-slate-250 bg-white hover:bg-slate-50 text-slate-550 flex items-center justify-center transition-all cursor-pointer relative"
-                title={lang === "ar" ? "مشاركة مستند أو صورة" : "Attach media file"}
+                title={t("attachMediaFile")}
               >
                 <UploadCloud className="w-5 h-5 text-indigo-600" />
                 <input
@@ -370,7 +455,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={lang === "ar" ? "اكتب رسالتك الآمنة هنا..." : "Type your direct message..."}
+                placeholder={t("typeDirectMsgPlaceholder")}
                 className={`flex-1 bg-white border border-slate-250 focus:border-indigo-600 outline-none rounded-xl px-3 text-xs leading-none transition-all font-sans py-2.5 ${isRtl ? "text-right" : "text-left"}`}
               />
 
@@ -393,12 +478,10 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
           <div className="bg-slate-55 bg-slate-50 border-b border-slate-200 p-4">
             <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block animate-pulse shrink-0" />
-              {lang === "ar" ? "الرسائل الخاصة (WhatsApp)" : "Private DMs (WhatsApp style)"}
+              {t("privateDmsTitle")}
             </h3>
             <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-              {lang === "ar" 
-                ? "محادثات مباشرة وآمنة بالزمن الفعلي مع جهات الاتصال الخاصة بك." 
-                : "Continuous instant encrypted dialogues with approved peers only."}
+              {t("privateDmsDesc")}
             </p>
           </div>
 
@@ -409,7 +492,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={lang === "ar" ? "ابحث عن صديق وباشر المحادثة..." : "Search for a contact to start DM..."}
+                placeholder={t("searchContactDmPlaceholder")}
                 className={`w-full bg-slate-50 border border-slate-200 focus:bg-white outline-none rounded-xl py-2 px-3.5 text-xs text-slate-800 placeholder-slate-400 transition-all ${isRtl ? "text-right" : "text-left"}`}
               />
               <Search className={`absolute w-3.5 h-3.5 text-slate-400 top-2.5 ${isRtl ? "left-3" : "right-3"}`} />
@@ -422,9 +505,9 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
             {/* If there is active searchQuery, show filtered contacts results */}
             {searchQuery ? (
               <div className="space-y-2">
-                <p className="text-[10px] font-extrabold text-slate-405 uppercase tracking-wider">{lang === "ar" ? "نتائج البحث في الأصدقاء" : "Contacts search result"}</p>
+                <p className="text-[10px] font-extrabold text-slate-405 uppercase tracking-wider">{t("contactsSearchResultTitle")}</p>
                 {filteredContacts.length === 0 ? (
-                  <p className="text-3xs text-slate-400 py-2.5 italic">{lang === "ar" ? "لا توجد نتائج مطابقة بين جهات المتابعة." : "No matching followed friends found."}</p>
+                  <p className="text-3xs text-slate-400 py-2.5 italic">{t("noMatchingFollowedFriends")}</p>
                 ) : (
                   filteredContacts.map(contact => (
                     <button
@@ -453,16 +536,14 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
               <>
                 {/* 1. Conversations list history */}
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">{lang === "ar" ? "المحادثات الأخيرة" : "Recent Conversations"}</p>
+                  <p className="text-[10px] font-extrabold text-slate-404 text-slate-400 uppercase tracking-wider mb-2">{t("recentConversationsTitle")}</p>
                   
                   {conversations.length === 0 ? (
                     <div className="border border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-400">
                       <MessageSquare className="w-6 h-6 text-slate-300 mx-auto mb-2" />
-                      <p className="text-3xs font-extrabold text-slate-500">{lang === "ar" ? "لا توجد محادثات نشطة" : "No active chats yet"}</p>
+                      <p className="text-3xs font-extrabold text-slate-500">{t("noActiveChatsYet")}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-                        {lang === "ar" 
-                          ? "ابحث عن صديق بالأسفل لمبادرته بمحادثة خاصة مشفرة." 
-                          : "Find one of your peers from connections below to start DMs."}
+                        {t("noActiveChatsYetDesc")}
                       </p>
                     </div>
                   ) : (
@@ -476,7 +557,11 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                         <button
                           key={conv.partner}
                           onClick={() => setActivePartner(conv.partner)}
-                          className="w-full flex items-center justify-between p-3 border border-slate-100 hover:border-indigo-100 bg-white hover:bg-slate-50 rounded-2xl transition-all cursor-pointer text-xs font-sans text-left"
+                          className={`w-full flex items-center justify-between p-3 border rounded-2xl transition-all cursor-pointer text-xs font-sans text-left ${
+                            conv.partner === shakingPartner
+                              ? "animate-subtle-shake border-indigo-400 bg-indigo-50/35 ring-2 ring-indigo-200"
+                              : "border-slate-100 hover:border-indigo-100 bg-white hover:bg-slate-50"
+                          }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-105 to-indigo-500 text-indigo-750 flex items-center justify-center font-black text-xs shrink-0 self-center">
@@ -488,8 +573,8 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                                 <span className="text-[8px] text-slate-400 font-mono shrink-0 ml-1.5">{displayTime}</span>
                               </div>
                               <p className="text-xxs text-slate-450 truncate mt-0.5">
-                                {isSenderMe ? (lang === "ar" ? "أنت: " : "You: ") : ""}
-                                {conv.lastMessage.file ? (lang === "ar" ? "📁 ملف مرفق" : "📁 Attached Document") : conv.lastMessage.text}
+                                {isSenderMe ? t("dmYouPrefix") : ""}
+                                {conv.lastMessage.file ? t("dmAttachedDocument") : conv.lastMessage.text}
                               </p>
                             </div>
                           </div>
@@ -501,20 +586,18 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
 
                 {/* 2. Direct Contacts Connection list (Approved Follows) */}
                 <div className="space-y-1.5 pt-2">
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">{lang === "ar" ? "بدء محادثة جديدة (قائمة الأصدقاء)" : "Start chat with friends"}</p>
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">{t("startChatWithFriends")}</p>
                   
                   {isLoadingPartners ? (
                     <div className="flex items-center justify-center py-4 text-slate-400 text-3xs">
                       <Clock className="w-3.5 h-3.5 animate-spin mr-1" />
-                      <span>{lang === "ar" ? "جاري جلب قائمة الأصدقاء المعتمدين..." : "Discovering verified connections..."}</span>
+                      <span>{t("discoveringVerifiedConnections")}</span>
                     </div>
                   ) : availablePartners.length === 0 ? (
                     <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-center text-slate-400">
                       <Users className="w-4 h-4 text-slate-350 mx-auto mb-1.5" />
                       <p className="text-[10px] text-slate-400 leading-normal">
-                        {lang === "ar"
-                          ? "لم تعتمد أي علاقة صداقة للدردشة بعد. ابحث عنهم بالايميل/الاسم وتابعهم في تبويب الأشخاص."
-                          : "No verified direct friends found. Follow peers in the Contacts tab."}
+                        {t("noVerifiedDirectFriends")}
                       </p>
                     </div>
                   ) : (
@@ -523,7 +606,11 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                         <button
                           key={contact.nickname}
                           onClick={() => setActivePartner(contact.nickname)}
-                          className="w-full flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-all cursor-pointer text-xs font-sans text-left"
+                          className={`w-full flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer text-xs font-sans text-left ${
+                            contact.nickname === shakingPartner
+                              ? "animate-subtle-shake bg-indigo-50/40 ring-2 ring-indigo-300"
+                              : "hover:bg-slate-50"
+                          }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white font-extrabold text-xs shrink-0 ${contact.avatarColor}`}>
@@ -535,7 +622,7 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
                             </div>
                           </div>
                           <span className="text-[10px] px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-750 font-black whitespace-nowrap">
-                            {lang === "ar" ? "محادثة" : "Chat"}
+                            {t("btnChat")}
                           </span>
                         </button>
                       ))}

@@ -41,7 +41,7 @@ export default function App() {
   });
 
   const t = (key: string, replacements?: Record<string, string | number>) => {
-    let str = translations[lang]?.[key] || translations["ar"]?.[key] || key;
+    let str = translations[lang]?.[key] || translations["en"]?.[key] || translations["ar"]?.[key] || key;
     if (replacements) {
       Object.entries(replacements).forEach(([k, v]) => {
         str = str.replace(`{${k}}`, String(v));
@@ -913,9 +913,7 @@ export default function App() {
               onJoinRoom={(targetTitle) => {
                 if (currentUser) {
                   const confirmed = window.confirm(
-                    lang === "ar" 
-                      ? `هل ترغب في مغادرة هذه الغرفة والانتقال الفوري لغرفة "${targetTitle}"؟` 
-                      : `Are you sure you want to leave this room and join "${targetTitle}"?`
+                    t("confirmLeaveAndJoin", { targetTitle })
                   );
                   if (confirmed) {
                     stopStreams();
@@ -969,7 +967,7 @@ export default function App() {
               }`}
             >
               <Lock className="w-3.5 h-3.5" />
-              <span className="truncate">{lang === "ar" ? "الرسائل الخاصة" : "Private DMs"}</span>
+              <span className="truncate">{t("privateDmsTitle")}</span>
             </button>
             <button
               onClick={() => setRightPanelTab("contacts")}

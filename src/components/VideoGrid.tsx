@@ -100,7 +100,7 @@ export function VideoGrid({
         <button
           onClick={copyRoomLink}
           className="flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs px-4 py-2 rounded-xl hover:bg-blue-105 transition-all font-semibold active:scale-95 shadow-sm cursor-pointer"
-          title={lang === "ar" ? "افتح مشاركة الرابط" : "Copy shareable meeting link"}
+          title={t("copyShareableLink")}
         >
           {copied ? (
             <>
@@ -121,12 +121,10 @@ export function VideoGrid({
           <span className="text-xl shrink-0 mt-0.5">💡</span>
           <div className="flex-1">
             <p className="font-black text-amber-950 text-sm">
-              {lang === "ar" ? "أنت تستخدم الكاميرا الافتراضية (محاكاة)" : "You are using the Simulator Camera"}
+              {t("usingSimulatedCamera")}
             </p>
             <p className="mt-1 text-amber-800 text-xs font-semibold leading-relaxed">
-              {lang === "ar"
-                ? "بسبب قيود الأمان لمتصفح الويب عندما يعمل التطبيق داخل المعاينة السريعة (iframe)، يتم تفعيل المحاكاة تلقائياً. لكي يراك الآخرون ويسمعوك حقيقياً: يرجى فتح التطبيق في نافذة مستقلة عبر الضغط على 'فتح في نافذة جديدة' (أعلى يسار الصفحة) ثم السماح للمتصفح بالوصول لكاميرا جهازك."
-                : "Due to strict browser permissions inside the platform's preview iframe, a high-quality video simulator is loaded automatically. To transmit real video: click 'Open in new tab' at the top left of the screen, allow browser camera and microphone permissions when prompted, and you will be instantly visible to others!"}
+              {t("simulatorCameraDisclaimer")}
             </p>
           </div>
         </div>
@@ -272,7 +270,7 @@ export function VideoGrid({
               ? "bg-red-600/30 border-red-500/40 text-red-400"
               : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
           }`}
-          title={isMuted ? (lang === "ar" ? "إلغاء كتم الصوت" : "Unmute Microphone") : (lang === "ar" ? "كتم المايكرفون" : "Mute Microphone")}
+          title={isMuted ? t("audioOff") : t("audioOn")}
         >
           {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
@@ -285,7 +283,7 @@ export function VideoGrid({
               ? "bg-red-600/30 border-red-500/40 text-red-400"
               : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
           }`}
-          title={isVideoOff ? (lang === "ar" ? "تشغيل الكاميرا" : "Turn Video On") : (lang === "ar" ? "إيقاف الكاميرا" : "Turn Video Off")}
+          title={isVideoOff ? t("videoOff") : t("videoOn")}
         >
           {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
         </button>
@@ -298,7 +296,7 @@ export function VideoGrid({
               ? "bg-indigo-600/40 border-indigo-500/45 text-indigo-300"
               : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
           }`}
-          title={isScreenSharing ? (lang === "ar" ? "المشاركة الحالية نشطة" : "Sharing active") : (lang === "ar" ? "مشاركة الشاشة بالكامل" : "Share screen")}
+          title={isScreenSharing ? t("activeScreenSharing") : t("shareFullScreen")}
         >
           <Tv className="w-5 h-5" />
         </button>
@@ -311,7 +309,7 @@ export function VideoGrid({
           <button
             onClick={onEndCall}
             className="p-3.5 rounded-xl bg-red-650 hover:bg-red-700 text-white font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer font-sans"
-            title={lang === "ar" ? "إنهاء وإغلاق مكالمة الفيديو" : "End call"}
+            title={t("endVideoCall")}
           >
             <PhoneOff className="w-5 h-5" />
             <span className="hidden sm:inline text-xs mt-0.5">{t("endCallBtn")}</span>

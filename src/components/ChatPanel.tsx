@@ -116,7 +116,7 @@ export function ChatPanel({
       setSelectedFile(result);
     } catch (err) {
       console.error("File processing failed:", err);
-      alert(lang === "ar" ? "فشل في معالجة وتحميل هذا الملف." : "Failed to process and prepare this file.");
+      alert(t("failedToProcessAndPrepare"));
     } finally {
       setIsUploading(false);
     }
@@ -183,7 +183,7 @@ export function ChatPanel({
       setAiSummary(data.text);
     } catch (err: any) {
       console.error("AI summarization failed:", err);
-      setAiError(err?.message || (lang === "ar" ? "حدث خطأ أثناء الاتصال بالخادم الرئيسي للمساعد الذكي." : "An error occurred while connecting to the smart virtual helper."));
+      setAiError(err?.message || t("aiVirtualHelperError"));
     } finally {
       setIsAiLoading(false);
     }
@@ -239,7 +239,7 @@ export function ChatPanel({
             {aiSummary}
           </div>
           <div className="border-t border-slate-200 pt-2.5 text-3xs text-slate-400 text-center font-mono">
-            {lang === "ar" ? "تضمن ذكاء خوارزمي مخصص ومأمن بالكامل - تم التحليل عبر نماذج Gemini" : "Private structured response - Processed safely with Google Gemini"}
+            {t("safeGeminiResponseAnalysed")}
           </div>
         </div>
       )}
@@ -289,7 +289,7 @@ export function ChatPanel({
                     <span className="text-xxs font-extrabold text-slate-755 flex items-center gap-1">
                       {msg.senderName === "1007363904" && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/25 text-amber-600 rounded text-[9px] font-black shrink-0">
-                          👑 {lang === "ar" ? "المدير العام" : "Super Admin"}
+                          👑 {t("superAdminLabel")}
                         </span>
                       )}
                       <span>{msg.senderName}</span>
@@ -297,7 +297,7 @@ export function ChatPanel({
                     <span className="text-[9px] text-slate-400 font-mono">{msg.createdAt}</span>
                     {isWhisper && (
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded text-[9px] font-black shrink-0">
-                        <Lock className="w-2.5 h-2.5" /> {lang === "ar" ? "همس خاص" : "Private"}
+                        <Lock className="w-2.5 h-2.5" /> {t("whisperPrivateLabel")}
                       </span>
                     )}
                   </div>
@@ -446,7 +446,7 @@ export function ChatPanel({
             </span>
             {selectedRecipient && (
               <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 font-extrabold px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                <EyeOff className="w-3 h-3" /> {lang === "ar" ? "همس مشفر" : "Encrypted Whisper"}
+                <EyeOff className="w-3 h-3" /> {t("whisperEncryptedLabel")}
               </span>
             )}
           </div>
@@ -487,7 +487,7 @@ export function ChatPanel({
               })
             ) : (
               <span className="text-3xs text-slate-400 italic">
-                {lang === "ar" ? "* لا توجد أجهزة متصلة أخرى في الغرفة حالياً للهمس الخاص." : "* No other active connections in this room for private whisper."}
+                {t("whisperingNoConnections")}
               </span>
             )}
           </div>
@@ -505,7 +505,7 @@ export function ChatPanel({
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
             className="w-11 h-11 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 shadow-sm transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
-            title={lang === "ar" ? "تحميل صورة أو مستند" : "Upload file or image"}
+            title={t("uploadFileOrImage")}
           >
             <UploadCloud className="w-5 h-5" />
           </button>

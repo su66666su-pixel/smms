@@ -830,7 +830,7 @@ export function ContactsPanel({
                     required
                     value={searchEmail}
                     onChange={(e) => setSearchEmail(e.target.value)}
-                    placeholder={lang === "ar" ? "ابحث بالاسم المستعار أو البريد الإلكتروني..." : "Search by nickname or email..."}
+                    placeholder={t("placeholderSearchEmail")}
                     className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none rounded-xl py-2 px-3 text-xs text-slate-800 placeholder-slate-400 transition-all ${isRtl ? "pr-9 text-right" : "pl-9 text-left"}`}
                   />
                   <Search className={`absolute w-4 h-4 text-slate-400 top-2.5 ${isRtl ? "right-3" : "left-3"}`} />
@@ -840,7 +840,7 @@ export function ContactsPanel({
                   disabled={isSearching}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm text-xs cursor-pointer flex items-center gap-1 shrink-0"
                 >
-                  {isSearching ? (lang === "ar" ? "جاري..." : "Searching...") : t("pullSearchBtn")}
+                  {isSearching ? t("searchingText") : t("pullSearchBtn")}
                 </button>
               </div>
             </form>
@@ -882,10 +882,10 @@ export function ContactsPanel({
                             <h4 className={`text-2xs font-extrabold text-slate-850 flex items-center gap-1.5 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                               {contact.nickname === "1007363904" && (
                                 <span className="inline-flex items-center gap-0.5 px-1 py-0.5 bg-amber-500/15 border border-amber-500/25 text-amber-700 rounded text-[9px] font-black shrink-0">
-                                  👑 {lang === "ar" ? "المدير العام" : "Super Admin"}
+                                  👑 {t("superAdminLabel")}
                                 </span>
                               )}
-                              {isPrivate ? (lang === "ar" ? "مشترك مشفر" : "Encrypted Connection") : contact.nickname}
+                              {isPrivate ? t("encryptedConnectionLabel") : contact.nickname}
                               {isPrivate ? (
                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 border border-amber-100 text-amber-700 text-[10px] rounded font-bold font-sans">
                                   <Lock className="w-2.5 h-2.5" /> {t("privacyPrivate")}
@@ -920,7 +920,7 @@ export function ContactsPanel({
                                 {copiedName === contact.nickname ? (
                                   <>
                                     <Check className="w-3 h-3 text-emerald-600" />
-                                    <span className="text-emerald-700">{lang === "ar" ? "تم نسخ الرابط" : "Link Copied"}</span>
+                                    <span className="text-emerald-700">{t("linkCopiedLabel")}</span>
                                   </>
                                 ) : (
                                   <>
@@ -934,7 +934,7 @@ export function ContactsPanel({
                                 onClick={() => handleSendInstantInvite(contact.nickname)}
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-3xs py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
                               >
-                                {sentInviteTo === contact.nickname ? (lang === "ar" ? "تم النشر" : "Sent!") : t("instantInviteBtn")}
+                                {sentInviteTo === contact.nickname ? t("sentLabel") : t("instantInviteBtn")}
                               </button>
                             </>
                           )}
@@ -949,12 +949,10 @@ export function ContactsPanel({
                 <div className="h-28 border border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 p-4 text-center">
                   <Users className="w-6 h-6 text-slate-350 mb-1" />
                   <p className="text-3xs font-semibold text-slate-500">
-                    {lang === "ar" ? "البحث عن الأشخاص" : "Search for People"}
+                    {t("searchForPeopleTitle")}
                   </p>
                   <p className="text-3xs text-slate-400 mt-0.5 leading-relaxed max-w-[180px]">
-                    {lang === "ar" 
-                      ? "ابحث عن أصدقائك بوضع الاسم المستعار أو البريد الإلكتروني لمتابعتهم وتبادل اللقاءات." 
-                      : "Search for your peers by typing their nickname or email address to follow and connect."}
+                    {t("searchForPeopleDesc")}
                   </p>
                 </div>
               )}
@@ -988,7 +986,7 @@ export function ContactsPanel({
                           </div>
                           <div className={isRtl ? "text-right" : "text-left"}>
                             <div className="text-2xs font-extrabold text-slate-805">{req.sender}</div>
-                            <p className="text-[10px] text-slate-450 mt-0.5">{lang === "ar" ? "يود متابعة حسابك والوصول للمبثوث" : "Wants to follow you and connect"}</p>
+                            <p className="text-[10px] text-slate-450 mt-0.5">{t("wantsToFollowYou")}</p>
                           </div>
                         </div>
 
@@ -1035,7 +1033,7 @@ export function ContactsPanel({
                           </div>
                           <div className={isRtl ? "text-right" : "text-left"}>
                             <div className="text-2xs font-extrabold text-slate-800">{fol.recipient}</div>
-                            <p className="text-[10px] text-emerald-650 font-bold mt-0.5">✓ {lang === "ar" ? "تم قبول الطلب" : "Approved"}</p>
+                            <p className="text-[10px] text-emerald-650 font-bold mt-0.5">✓ {t("approvedSuccess")}</p>
                           </div>
                         </div>
 
@@ -1074,7 +1072,7 @@ export function ContactsPanel({
                           </div>
                           <div className={isRtl ? "text-right" : "text-left"}>
                             <div className="text-2xs font-extrabold text-slate-805">{fol.sender}</div>
-                            <p className="text-[10px] text-indigo-600 font-bold mt-0.5">{lang === "ar" ? "يتابع ملفك الآن" : "Follows you currently"}</p>
+                            <p className="text-[10px] text-indigo-600 font-bold mt-0.5">{t("currentlyFollowsYou")}</p>
                           </div>
                         </div>
 

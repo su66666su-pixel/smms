@@ -81,14 +81,14 @@ export function FollowingPanel({
             <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
           </div>
           <span className="text-xs font-black text-slate-800">
-            {lang === "ar" ? "من أتابعهم" : "Network (Following)"} 
+            {t("networkFollowingTitle")} 
             <span className="bg-slate-100/80 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md text-[10px] ml-1.5 font-bold font-mono">
               {approvedFollowing.length}
             </span>
           </span>
         </div>
         <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-          {lang === "ar" ? "أدوات الاتصال السريع" : "Quick dial node"}
+          {t("quickDialNode")}
         </span>
       </div>
 
@@ -110,21 +110,19 @@ export function FollowingPanel({
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-6 gap-2">
           <span className="w-4 h-4 rounded-full border-2 border-slate-300 border-t-blue-600 animate-spin" />
-          <span className="text-[10px] text-slate-400 font-bold">{lang === "ar" ? "جاري تحميل قائمة الشبكة..." : "Synchronizing network list..."}</span>
+          <span className="text-[10px] text-slate-400 font-bold">{t("synchronizingNetworkList")}</span>
         </div>
       ) : approvedFollowing.length === 0 ? (
         <div className="text-center py-5 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 flex flex-col gap-1.5 items-center">
           <p className="text-[11px] font-semibold text-slate-450 leading-relaxed max-w-[200px]">
-            {lang === "ar" 
-              ? "لا يوجد أحد تابعه بعد لتظهر أدوات اتصاله هنا." 
-              : "No users followed yet. Follow members inside the Contacts directory!"}
+            {t("noUsersFollowedYet")}
           </p>
           <button
             type="button"
             onClick={() => onSwitchTab("contacts")}
             className="text-[10px] text-indigo-650 hover:text-indigo-800 font-black cursor-pointer flex items-center gap-1 mt-1 transition-all bg-indigo-50 border border-indigo-100 hover:border-indigo-150 px-2.5 py-1.5 rounded-lg shadow-2xs"
           >
-            <span>✨ {lang === "ar" ? "استكشف ومتابعة الأشخاص الآن" : "Find & Follow People Now"}</span>
+            <span>✨ {t("findFollowPeopleNow")}</span>
           </button>
         </div>
       ) : (
@@ -142,6 +140,7 @@ export function FollowingPanel({
               showError={showError}
               lang={lang}
               isRtl={isRtl}
+              t={t}
             />
           ))}
         </div>
@@ -149,7 +148,6 @@ export function FollowingPanel({
     </div>
   );
 }
-
 interface FollowedUserRowProps {
   currentUsername: string;
   targetUsername: string;
@@ -161,6 +159,7 @@ interface FollowedUserRowProps {
   showError: (text: string) => void;
   lang: string;
   isRtl: boolean;
+  t: (key: string, replacements?: Record<string, string | number>) => string;
 }
 
 const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
@@ -173,7 +172,8 @@ const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
   showSuccess,
   showError,
   lang,
-  isRtl
+  isRtl,
+  t
 }) => {
   const [targetUser, setTargetUser] = useState<any>(null);
   const [sendingInvite, setSendingInvite] = useState(false);
@@ -200,19 +200,13 @@ const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
   // Call invitation handler
   const handleSendCallInvite = async () => {
     if (!currentRoomTitle || !currentRoomId) {
-      showError(
-        lang === "ar"
-          ? "يرجى دخول غرفتك أولاً لتتمكن من إرسال دعوة مكالمة!"
-          : "Please enter a video room first to invite others!"
-      );
+      showError(t("pleaseEnterVideoRoomFirst"));
       return;
     }
     
     setSendingInvite(true);
     try {
-      const inviteMsg = lang === "ar"
-        ? `📞 أدعوك للانضمام إلى غرفتي لمكالمة فيديو الآن: "${currentRoomTitle}"`
-        : `📞 I invite you to join my video call room right now: "${currentRoomTitle}"`;
+      const inviteMsg = t("callInviteText", { roomTitle: currentRoomTitle });
 
       const payload = {
         sender: currentUsername,
@@ -240,18 +234,10 @@ const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
         });
       } catch (err) {}
 
-      showSuccess(
-        lang === "ar"
-          ? `تم إرسال دعوة مكالمة فيديو بنجاح إلى ${targetUsername}!`
-          : `Video call invitation dispatched to ${targetUsername}!`
-      );
+      showSuccess(t("callInviteSuccess", { targetUsername }));
     } catch (e) {
       console.error("Error sending call invite:", e);
-      showError(
-        lang === "ar"
-          ? "فشل إرسال الدعوة. يرجى المحاولة مرة أخرى."
-          : "Dispatched failed. Please try again."
-      );
+      showError(t("callInviteFailed"));
     } finally {
       setSendingInvite(false);
     }
@@ -283,12 +269,12 @@ const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
           {activeRoomId ? (
             <p className="text-[9.5px] text-emerald-600 font-bold leading-normal truncate max-w-[120px] flex items-center gap-1">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              {lang === "ar" ? "نشط في: " : "Busy in: "} 
+              {t("busyInRoom")} 
               <span className="underline decoration-emerald-200">{activeRoomTitle}</span>
             </p>
           ) : (
             <p className="text-[9px] text-slate-400 leading-normal font-semibold">
-              {lang === "ar" ? "أوفلاين - غير نشط" : "Offline - Not in room"}
+              {t("offlineNotInRoom")}
             </p>
           )}
         </div>
@@ -301,22 +287,14 @@ const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
           <button
             onClick={() => {
               if (activeRoomId === currentRoomId) {
-                showSuccess(
-                  lang === "ar"
-                    ? "أنت متصل بالفعل مع هذا الشخص في نفس الغرفة الحالية!"
-                    : "You are already connected together inside this room!"
-                );
+                showSuccess(t("alreadyConnectedInRoom"));
               } else {
                 onJoinRoom(activeRoomTitle || activeRoomId);
-                showSuccess(
-                  lang === "ar"
-                    ? `جاري الاتصال والانتقال الفوري إلى غرفة: "${activeRoomTitle}"`
-                    : `Connecting & morphing into room: "${activeRoomTitle}"`
-                );
+                showSuccess(t("connectingAndMorphing", { activeRoomTitle: activeRoomTitle || activeRoomId }));
               }
             }}
             className="p-2 bg-emerald-50 border border-emerald-150 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 text-emerald-700 rounded-lg transition-all cursor-pointer shadow-2xs"
-            title={lang === "ar" ? "انضمام للمكالمة والبث" : "Join call & stream"}
+            title={t("joinCallAndStream")}
           >
             <Video className="w-3.5 h-3.5" />
           </button>
@@ -325,7 +303,7 @@ const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
             onClick={handleSendCallInvite}
             disabled={sendingInvite}
             className="p-2 bg-slate-100 border border-slate-200 hover:bg-slate-250 text-slate-600 hover:text-slate-800 hover:border-slate-300 rounded-lg transition-all cursor-pointer disabled:opacity-40 shadow-2xs"
-            title={lang === "ar" ? "إرسال دعوة اتصال" : "Send call invite"}
+            title={t("sendCallInvite")}
           >
             <Phone className="w-3.5 h-3.5" />
           </button>
@@ -337,8 +315,8 @@ const FollowedUserRow: React.FC<FollowedUserRowProps> = ({
             onSwitchTab("dms");
             // Highlight of friend will happen natively or they can start writing
           }}
-          className="p-2 bg-blue-50 border border-blue-150 hover:bg-blue-600 hover:text-white hover:border-blue-600 text-blue-700 rounded-lg transition-all cursor-pointer shadow-2xs"
-          title={lang === "ar" ? "مراسلة خاصة" : "Direct private message"}
+          className="p-2 bg-blue-50 border border-blue-150 hover:bg-blue-600 hover:text-white hover:border-blue-605 text-blue-700 rounded-lg transition-all cursor-pointer shadow-2xs"
+          title={t("directPrivateMessage")}
         >
           <MessageSquare className="w-3.5 h-3.5" />
         </button>

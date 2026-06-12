@@ -938,7 +938,7 @@ export function LandingPage({
                     )}
 
                     <p className="text-3xs text-slate-450 leading-relaxed mt-2.5 text-justify">
-                      * {lang === "ar" ? "ملاحظة: للدخول مع زملائك، يرجى كتابة اسم الغرفة بدقة كاملة. سيتم توجيهك تلقائياً وبأمان." : "Note: To enter with your team, please write the room title accurately. You will be directed securely."}
+                      * {t("noteJoinRoom")}
                     </p>
                   </div>
 
@@ -955,19 +955,19 @@ export function LandingPage({
                     {isLoading ? (
                       <>
                         <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        {lang === "ar" ? "جاري الاتصال والتحويل لغرفة البث..." : "Connecting and opening live room..."}
+                        {t("connectingLiveRoom")}
                       </>
                     ) : (
                       <>
                         {roomFlow === "create" ? (
                           <>
                             <Sparkles className="w-4 h-4 font-black text-white" />
-                            {lang === "ar" ? `تأسيس وإطلاق الغرفة الجديدة ("${roomTitle}")` : `Establish & Launch New Room ("${roomTitle}")`}
+                            {t("establishNewRoom", { roomTitle })}
                           </>
                         ) : (
                           <>
                             <ArrowRightCircle className="w-4 h-4 font-black" />
-                            {lang === "ar" ? `الاتصال ودخول الغرفة المرئية ("${roomTitle}")` : `Connect & Enter Video Room ("${roomTitle}")`}
+                            {t("connectAndEnterRoom", { roomTitle })}
                           </>
                         )}
                       </>
@@ -984,13 +984,10 @@ export function LandingPage({
       <footer 
         onDoubleClick={onOpenAdmin}
         className="max-w-7xl mx-auto w-full text-center py-4 border-t border-slate-200 text-2xs text-slate-500 cursor-pointer select-none"
-        title={lang === "ar" ? "انقر هنا مرتين للدخول السري" : "Double-click here for secret entrance"}
+        title={t("doubleClickSecret")}
       >
-        {lang === "ar" ? (
-          <>تطوير وتشغيل SNNS.PRO • جميع الحقوق محفوظة لغرف ومكالمات البث المباشر ومشاركة الملفات الآمنة 100%. <span onClick={(e) => { e.stopPropagation(); onOpenAdmin(); }} className="opacity-0 cursor-pointer text-slate-100">.</span></>
-        ) : (
-          <>Powered by SNNS.PRO • All rights reserved for secure video rooms & protected live file transfers 100%. <span onClick={(e) => { e.stopPropagation(); onOpenAdmin(); }} className="opacity-0 cursor-pointer text-slate-100">.</span></>
-        )}
+        <span>{t("footerCopyrightText")}</span>
+        <span onClick={(e) => { e.stopPropagation(); onOpenAdmin(); }} className="opacity-0 cursor-pointer text-slate-100">.</span>
       </footer>
     </div>
   );

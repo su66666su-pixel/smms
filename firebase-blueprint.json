@@ -96,12 +96,60 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["nickname", "status", "createdAt"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "A follow connection between two users",
+      "type": "object",
+      "properties": {
+        "sender": { "type": "string" },
+        "recipient": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sender", "recipient", "status", "createdAt", "updatedAt"]
+    },
+    "DirectMessage": {
+      "title": "DirectMessage",
+      "description": "A direct message exchange between two members",
+      "type": "object",
+      "properties": {
+        "sender": { "type": "string" },
+        "recipient": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "conversationId": { "type": "string" },
+        "participants": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "file": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string" },
+            "size": { "type": "number" },
+            "dataUrl": { "type": "string" }
+          },
+          "required": ["name", "type", "dataUrl"]
+        }
+      },
+      "required": ["sender", "recipient", "createdAt", "conversationId", "participants"]
     }
   },
   "firestore": {
     "/users/{nickname}": {
       "schema": "User",
       "description": "Collection of all pending, approved, and rejected usernames"
+    },
+    "/follows/{followId}": {
+      "schema": "Follow",
+      "description": "Follow request and approved connection list"
+    },
+    "/direct_messages/{messageId}": {
+      "schema": "DirectMessage",
+      "description": "Collection of peer-to-peer private direct messages"
     },
     "/rooms/{roomId}": {
       "schema": "Room",
