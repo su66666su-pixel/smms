@@ -6,22 +6,34 @@ import {
 import { motion } from "motion/react";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
+import { LanguageSelector } from "./LanguageSelector";
+import { LanguageCode } from "../utils/translations";
 
 interface LandingPageProps {
   onJoinRoom: (roomTitle: string, nickname: string, avatarColor: string) => void;
   isLoading: boolean;
   onOpenAdmin: () => void;
+  lang: LanguageCode;
+  onLanguageChange: (lang: LanguageCode) => void;
+  t: (key: string, replacements?: Record<string, string | number>) => string;
 }
 
 const AVATAR_COLORS = [
-  { name: "أزرق فضاء", class: "bg-blue-600 shadow-blue-500/50" },
-  { name: "بنفسجي عميق", class: "bg-indigo-600 shadow-indigo-500/50" },
-  { name: "أخضر زمردي", class: "bg-emerald-600 shadow-emerald-500/50" },
-  { name: "وردي نيون", class: "bg-pink-600 shadow-pink-500/50" },
-  { name: "برتقالي ناري", class: "bg-amber-600 shadow-amber-500/50" },
+  { nameKey: "avatarBlue", class: "bg-blue-600 shadow-blue-500/50", arabicFallback: "أزرق فضاء" },
+  { nameKey: "avatarPurple", class: "bg-indigo-600 shadow-indigo-500/50", arabicFallback: "بنفسجي عميق" },
+  { nameKey: "avatarEmerald", class: "bg-emerald-600 shadow-emerald-500/50", arabicFallback: "أخضر زمردي" },
+  { nameKey: "avatarPink", class: "bg-pink-600 shadow-pink-500/50", arabicFallback: "وردي نيون" },
+  { nameKey: "avatarOrange", class: "bg-amber-600 shadow-amber-500/50", arabicFallback: "برتقالي ناري" },
 ];
 
-export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageProps) {
+export function LandingPage({ 
+  onJoinRoom, 
+  isLoading, 
+  onOpenAdmin, 
+  lang, 
+  onLanguageChange, 
+  t 
+}: LandingPageProps) {
   // Session State
   const [sessionUser, setSessionUser] = useState<{
     nickname: string;
@@ -59,7 +71,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
   const [recoveryNewPassword, setRecoveryNewPassword] = useState("");
 
   // Room Title for joined flows
-  const [roomTitle, setRoomTitle] = useState("لقاء الويب العام");
+  const [roomTitle, setRoomTitle] = useState(() => t("roomPlaceholder").replace("مثال: ", ""));
 
   // Check URL Hash for invitation links (e.g. #room-1234)
   useEffect(() => {
@@ -69,6 +81,14 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       setRoomTitle(decodedRoomName);
     }
   }, []);
+
+  // Sync default room title if it's currently the default one and language changes
+  useEffect(() => {
+    const isDefault = roomTitle === "لقاء الويب العام" || roomTitle === "Public Web Meeting" || roomTitle === t("roomPlaceholder").replace("مثال: ", "");
+    if (isDefault) {
+      setRoomTitle(t("roomPlaceholder").replace("مثال: ", "").replace("Example: ", ""));
+    }
+  }, [lang]);
 
   // Clear messages after 5 seconds
   useEffect(() => {
@@ -88,7 +108,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
     if (cleanName === "1007363904" && cleanPass === "139213") {
       setAuthLoading(true);
       sessionStorage.setItem("snns_admin_logged", "true");
-      setSuccessMessage("تم التحقق بنجاح! جاري توجيهك إلى لوحة الإدارة السرية فوراً...");
+      setSuccessMessage(lang === "ar" ? "تم التحقق بنجاح! جاري توجيهك إلى لوحة الإدارة السرية فوراً..." : "Verified successfully! Redirecting you to secret admin panel instantly...");
       const timer = setTimeout(() => {
         onOpenAdmin();
         setLoginNickname("");
@@ -97,7 +117,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [loginNickname, loginPassword, onOpenAdmin]);
+  }, [loginNickname, loginPassword, onOpenAdmin, lang]);
 
   // Handle Login Action
   const handleLogin = async (e: React.FormEvent) => {
@@ -106,14 +126,14 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
     const password = loginPassword.trim();
 
     if (!cleanName || !password) {
-      setErrorMessage("الرجاء تعبئة كافة حقول تسجيل الدخول.");
+      setErrorMessage(t("errFillAll"));
       return;
     }
 
     if (cleanName === "1007363904" && password === "139213") {
       setAuthLoading(true);
       sessionStorage.setItem("snns_admin_logged", "true");
-      setSuccessMessage("تم التحقق بنجاح! جاري توجيهك إلى لوحة الإدارة السرية...");
+      setSuccessMessage(lang === "ar" ? "تم التحقق بنجاح! جاري توجيهك إلى لوحة الإدارة السرية..." : "Verified successfully! Directing you to admin console...");
       setTimeout(() => {
         onOpenAdmin();
         setLoginNickname("");
@@ -131,7 +151,9 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       const snap = await getDoc(userDocRef);
 
       if (!snap.exists()) {
-        setErrorMessage("عذراً، هذا الاسم المستعار غير مسجل لدينا. يرجى التوجه لعلامة تبويب 'تسجيل جديد'.");
+        setErrorMessage(lang === "ar" 
+          ? "عذراً، هذا الاسم المستعار غير مسجل لدينا. يرجى التوجه لعلامة تبويب 'تسجيل جديد'." 
+          : "Sorry, this nickname is not registered. Please go to 'Register' tab.");
         setAuthLoading(false);
         return;
       }
@@ -139,9 +161,9 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       const userData = snap.data();
       const savedPassword = userData.password;
 
-      // Verify Password (Fallback support if some old accounts don't have password field yet)
+      // Verify Password
       if (savedPassword && savedPassword !== password) {
-        setErrorMessage("كلمة المرور التي أدخلتها غير صحيحة. يرجى التأكد والمحاولة مجدداً.");
+        setErrorMessage(t("errIncorrectPass"));
         setAuthLoading(false);
         return;
       }
@@ -156,7 +178,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
 
       localStorage.setItem("snns_session", JSON.stringify(loggedUser));
       setSessionUser(loggedUser);
-      setSuccessMessage("تم تسجيل الدخول بنجاح! جاري تحويلك إلى الغرفة فوراً...");
+      setSuccessMessage(t("successLogin"));
       
       // Auto-populate active signup avatar details
       setSelectedColor(loggedUser.avatarColor);
@@ -168,7 +190,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
 
     } catch (err) {
       console.error("Login Error:", err);
-      setErrorMessage("حدث خطأ أثناء محاولة تسجيل الدخول. يرجى إعادة المحاولة.");
+      setErrorMessage(lang === "ar" ? "حدث خطأ أثناء محاولة تسجيل الدخول. يرجى إعادة المحاولة." : "An error occurred during login. Please retry.");
     } finally {
       setAuthLoading(false);
     }
@@ -182,12 +204,12 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
     const password = signupPassword.trim();
 
     if (!cleanName || !email || !password) {
-      setErrorMessage("الرجاء إدخال الاسم الكريم والبريد وكلمة المرور.");
+      setErrorMessage(lang === "ar" ? "الرجاء إدخال الاسم الكريم والبريد وكلمة المرور." : "Please fill in nickname, email, and password.");
       return;
     }
 
     if (/[#./[\]$]/.test(cleanName)) {
-      setErrorMessage("يجب ألا يحتوي الاسم المستعار على رموز مثل (# . / [ ] $)");
+      setErrorMessage(t("errSpecialChars"));
       return;
     }
 
@@ -199,7 +221,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       const snap = await getDoc(userDocRef);
 
       if (snap.exists()) {
-        setErrorMessage("عذراً، الاسم المستعار محجوز بالفعل لمشترك آخر. اختر اسماً مغايراً.");
+        setErrorMessage(t("errNicknameReserved"));
         setAuthLoading(false);
         return;
       }
@@ -221,7 +243,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       // Save to active session
       localStorage.setItem("snns_session", JSON.stringify(newUserPayload));
       setSessionUser(newUserPayload);
-      setSuccessMessage("تهانينا! تم إنشاء حسابك بنجاح. جاري تحويلك إلى الغرفة فوراً...");
+      setSuccessMessage(t("successSignup"));
 
       // Instant redirect to the room
       setTimeout(() => {
@@ -230,7 +252,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
 
     } catch (err) {
       console.error("Signup Error:", err);
-      setErrorMessage("حدث خطأ أثناء إنشاء حسابك. تفقد اتصالك بالشبكة.");
+      setErrorMessage(t("errSignupError"));
     } finally {
       setAuthLoading(false);
     }
@@ -244,7 +266,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
     const newPass = recoveryNewPassword.trim();
 
     if (!cleanName || !email || !newPass) {
-      setErrorMessage("الرجاء إدخال اسم المستخدم، البريد، وكلمة المرور الجديدة.");
+      setErrorMessage(t("errRecoveryEmpty"));
       return;
     }
 
@@ -257,7 +279,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       const snap = await getDoc(userDocRef);
 
       if (!snap.exists()) {
-        setErrorMessage("عذراً، الاسم المستعار المدخل غير مسجل لدينا.");
+        setErrorMessage(t("errRecoveryNotFound"));
         setAuthLoading(false);
         return;
       }
@@ -266,13 +288,13 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       const savedEmail = (userData.email || "").trim().toLowerCase();
 
       if (!savedEmail) {
-        setErrorMessage("عذراً، هذا الحساب لم يتم ربطه ببريد إلكتروني، يرجى الاستعانة بالمسؤول.");
+        setErrorMessage(t("errRecoveryNoEmail"));
         setAuthLoading(false);
         return;
       }
 
       if (savedEmail !== email) {
-        setErrorMessage("عذراً، البريد الإلكتروني الذي أدخلته لا يطابق البريد المسجل لهذا الحساب.");
+        setErrorMessage(t("errRecoveryNoMatch"));
         setAuthLoading(false);
         return;
       }
@@ -282,7 +304,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
         password: newPass
       });
 
-      setSuccessMessage("تم تعيين كلمة المرور الجديدة وتحديث حسابك بنجاح! يمكنك الآن تسجيل الدخول.");
+      setSuccessMessage(t("successRecovery"));
       
       // Auto fill login fields for convenience
       setLoginNickname(cleanName);
@@ -299,7 +321,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
 
     } catch (err) {
       console.error("Password recovery error:", err);
-      setErrorMessage("حدث خطأ أثناء محاولة استعادة الحساب. يرجى مراجعة الاتصال.");
+      setErrorMessage(lang === "ar" ? "حدث خطأ أثناء محاولة استعادة الحساب. يرجى مراجعة الاتصال." : "An error occurred during password recovery. Check network.");
     } finally {
       setAuthLoading(false);
     }
@@ -314,93 +336,98 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
     setSignupNickname("");
     setSignupEmail("");
     setSignupPassword("");
-    setSuccessMessage("تم تسجيل خروجك بأمان.");
+    setSuccessMessage(t("successLogout"));
   };
 
   // Handle entering/broadcasting inside room
   const handleJoinOrCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sessionUser) {
-      setErrorMessage("الرجاء تسجيل الدخول أولاً قبل اختيار الغرفة.");
+      setErrorMessage(t("errRoomEmpty"));
       return;
     }
 
     onJoinRoom(roomTitle.trim(), sessionUser.nickname, sessionUser.avatarColor);
   };
 
+  const isRtl = lang === "ar" || lang === "ur";
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between p-4 md:p-8 font-sans transition-colors duration-300 relative" dir="rtl">
+    <div className={`min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between p-4 md:p-8 font-sans transition-colors duration-300 relative`} dir={isRtl ? "rtl" : "ltr"}>
       {/* Decorative ambient blobs */}
-      <div className="absolute top-10 right-10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 left-10 w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl pointer-events-none" />
+      <div className={`absolute top-10 ${isRtl ? "right-10" : "left-10"} w-72 h-72 bg-blue-600/5 rounded-full blur-3xl pointer-events-none`} />
+      <div className={`absolute bottom-10 ${isRtl ? "left-10" : "right-10"} w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl pointer-events-none`} />
 
       {/* Header */}
       <header className="max-w-7xl mx-auto w-full flex items-center justify-between py-4 z-10">
         <div 
           className="flex items-center gap-3 cursor-pointer select-none"
           onDoubleClick={onOpenAdmin}
-          title="انقر مرتين سريعتين كإجراء سري"
+          title={lang === "ar" ? "انقر مرتين سريعتين كإجراء سري" : "Double click as a secret action"}
         >
           <div className="p-2.5 bg-blue-50 border border-blue-105 rounded-xl">
             <Video className="w-6 h-6 text-blue-600" />
           </div>
-          <div>
+          <div className="text-right">
             <h1 className="text-xl font-bold tracking-tight bg-gradient-to-l from-blue-700 to-indigo-600 bg-clip-text text-transparent">
-              بث وغرف SNNS.PRO
+              {t("platformName")}
             </h1>
             <p className="text-xs text-slate-500 font-mono font-bold tracking-wide">SNNS.PRO WEB SERVICES</p>
           </div>
         </div>
+
+        {/* Multi-Language Selector Dropdown Integration */}
         <div className="flex items-center gap-3">
+          <LanguageSelector currentLanguage={lang} onLanguageChange={onLanguageChange} dark={false} />
+          
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-600 border border-slate-200 rounded-full px-3 py-1.5 bg-white shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            خوادم الدخول والتحقق آمنة
+            {t("secureServers")}
           </div>
         </div>
       </header>
 
       {/* Main Container */}
       <main className="max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center my-auto py-8 z-10">
-        {/* Left Side: Modern Promotional / Info Panel */}
-        <div className="md:col-span-5 flex flex-col gap-6 text-right md:order-last">
+        {/* Modern Promotional / Info Panel */}
+        <div className={`md:col-span-5 flex flex-col gap-6 text-start ${isRtl ? "md:text-right" : "md:text-left"}`}>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="p-1 px-3 w-fit rounded-full bg-blue-50 border border-blue-105 text-blue-700 text-xs font-semibold flex items-center gap-1.5"
+            className={`p-1 px-3 w-fit rounded-full bg-blue-50 border border-blue-105 text-blue-700 text-xs font-semibold flex items-center gap-1.5 ${isRtl ? "mr-0" : "ml-0"}`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            منصة بث ومكالمات مؤمنة بالكامل
+            {t("subTitle")}
           </motion.div>
 
-          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 leading-snug">
-            بث فائق الدقة، <br />
-            تواصل مستقر ومشاركة ملفات <span className="bg-gradient-to-l from-blue-600 via-indigo-600 to-cyan-600 bg-clip-text text-transparent">بلحظات معدودة!</span>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-snug">
+            {t("heroTitle")}
           </h2>
 
           <p className="text-sm text-slate-600 leading-relaxed">
-            استمتع بتجربة بث وغرف فيديو متكاملة مع ميزات التسجيل، تسجيل الدخول الآمن لحماية أسماء المستخدمين، ومشاركات الحالات المرئية المباشرة بلا قيود.
+            {t("heroDesc")}
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-550/30 transition-all flex items-start gap-3 shadow-sm">
               <Users className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-slate-800">حماية العضويات</h4>
-                <p className="text-2xs text-slate-500 mt-1">حماية اسمك المستعار بكلمة مرور لضمان هويتك بالكامل.</p>
+                <h4 className="text-xs font-bold text-slate-800">{t("feature1Title")}</h4>
+                <p className="text-2xs text-slate-500 mt-1">{t("feature1Desc")}</p>
               </div>
             </div>
 
             <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-550/30 transition-all flex items-start gap-3 shadow-sm">
               <MessageSquare className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-slate-800">مشاركة لحظية</h4>
-                <p className="text-2xs text-slate-500 mt-1">تبادل فوري للوسائط والصور بين مشتركي القنوات.</p>
+                <h4 className="text-xs font-bold text-slate-800">{t("feature2Title")}</h4>
+                <p className="text-2xs text-slate-500 mt-1">{t("feature2Desc")}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Interactive beautiful dynamic forms & Account controllers */}
+        {/* Interactive dynamic forms & Account controllers */}
         <div className="md:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-md relative overflow-hidden min-h-[460px] flex flex-col justify-between">
           <div className="absolute top-0 right-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-indigo-500" />
           
@@ -427,60 +454,60 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                 <button
                   type="button"
                   onClick={() => { setActiveTab("login"); setErrorMessage(null); }}
-                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     activeTab === "login"
                       ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100/50" 
-                      : "text-slate-550 hover:bg-slate-50"
+                      : "text-slate-500 hover:bg-slate-50"
                   }`}
                 >
                   <LogIn className="w-4 h-4" />
-                  تسجيل الدخول (للمشتركين)
+                  {t("loginTab")}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setActiveTab("signup"); setErrorMessage(null); }}
-                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     activeTab === "signup"
                       ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100/50" 
-                      : "text-slate-550 hover:bg-slate-50"
+                      : "text-slate-500 hover:bg-slate-50"
                   }`}
                 >
                   <UserPlus className="w-4 h-4" />
-                  تسجيل جديد (إنشاء عضوية)
+                  {t("signupTab")}
                 </button>
               </div>
 
               {/* Login Frame */}
               {activeTab === "login" ? (
                 <form onSubmit={handleLogin} className="flex flex-col gap-4">
-                  <div className="text-right">
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">تسجيل الدخول والدخول الفوري</h3>
-                    <p className="text-2xs text-slate-400 mb-4">أدخل الاسم، كلمة المرور، واسم الغرفة للدخول مباشرة</p>
+                  <div className={`${isRtl ? "text-right" : "text-left"}`}>
+                    <h3 className="text-sm font-bold text-slate-800 mb-1">{t("loginDetailsTitle")}</h3>
+                    <p className="text-2xs text-slate-400 mb-4">{t("loginDetailsSub")}</p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">الاسم المستعار *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("nicknameLabel")}</label>
                     <div className="relative">
                       <input
                         type="text"
                         required
                         value={loginNickname}
                         onChange={(e) => setLoginNickname(e.target.value)}
-                        placeholder="مثال: يوسف_الغامدي"
-                        className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all"
+                        placeholder={t("nicknamePlaceholder")}
+                        className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-808 placeholder-slate-400/80 transition-all ${isRtl ? "text-right" : "text-left"}`}
                       />
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                      <span>كلمة المرور السريّة *</span>
+                      <span>{t("passwordLabel")}</span>
                       <button
                         type="button"
                         onClick={() => { setActiveTab("recovery"); setErrorMessage(null); }}
                         className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline cursor-pointer font-bold"
                       >
-                        نسيت الرقم السري؟
+                        {t("forgotPass")}
                       </button>
                     </label>
                     <div className="relative">
@@ -489,22 +516,22 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                         required
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="أدخل كلمة المرور الخاصة بحسابك..."
-                        className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all font-mono"
+                        placeholder="••••••••••••"
+                        className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-808 placeholder-slate-400/80 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                       />
                     </div>
                   </div>
 
                   {/* Integrated Room Name Field */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">اسم الغرفة المراد دخولها *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("roomLabel")}</label>
                     <input
                       type="text"
                       required
                       value={roomTitle}
                       onChange={(e) => setRoomTitle(e.target.value)}
-                      placeholder="مثال: لقاء الويب العام"
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-805 font-semibold transition-all"
+                      placeholder={t("roomPlaceholder")}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
@@ -517,12 +544,12 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                     {authLoading ? (
                       <>
                         <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        يرجى الانتظار جاري التحقق والاتصال...
+                        {t("submitLoginLoading")}
                       </>
                     ) : (
                       <>
                         <LogIn className="w-4 h-4" />
-                        التحقق ودخول الغرفة فوراً
+                        {t("submitLogin")}
                       </>
                     )}
                   </button>
@@ -530,97 +557,97 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
               ) : activeTab === "signup" ? (
                 /* Registration Frame */
                 <form onSubmit={handleSignup} className="flex flex-col gap-3">
-                  <div className="text-right">
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">فتح حساب جديد والانضمام المباشر</h3>
-                    <p className="text-2xs text-slate-400 mb-3">احجز اسمك المستعار الآن وتوجه لغرف البث فوراً</p>
+                  <div className={`${isRtl ? "text-right" : "text-left"}`}>
+                    <h3 className="text-sm font-bold text-slate-800 mb-1">{t("signupDetailsTitle")}</h3>
+                    <p className="text-2xs text-slate-400 mb-3">{t("signupDetailsSub")}</p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">الاسم المستعار المرغوب *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("nicknameLabel")}</label>
                     <input
                       type="text"
                       required
                       value={signupNickname}
                       onChange={(e) => setSignupNickname(e.target.value)}
-                      placeholder="أدخل الاسم (مثال: أحمد_علي)"
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all"
+                      placeholder={t("nicknamePlaceholder")}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">البريد الإلكتروني *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("emailLabel")}</label>
                     <input
                       type="email"
                       required
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
-                      placeholder="EX: email@example.com"
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all"
+                      placeholder={t("emailPlaceholder")}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-3 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">كلمة مرور قوية لحماية الحساب *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("passwordLabel")}</label>
                     <input
                       type="password"
                       required
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
-                      placeholder="أدخل كلمة المرور المرغوبة..."
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono"
+                      placeholder="••••••••••••"
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   {/* Integrated Room Name Field */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">اسم الغرفة المراد دخولها *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("roomLabel")}</label>
                     <input
                       type="text"
                       required
                       value={roomTitle}
                       onChange={(e) => setRoomTitle(e.target.value)}
-                      placeholder="مثال: لقاء الويب العام"
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-805 font-semibold transition-all"
+                      placeholder={t("roomPlaceholder")}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   {/* Account Privacy Choice */}
-                  <div className="flex flex-col gap-1.5 mt-1 text-right" dir="rtl">
-                    <label className="text-xs font-bold text-slate-700">خصوصية الحساب (البحث والوصول):</label>
+                  <div className={`flex flex-col gap-1.5 mt-1 ${isRtl ? "text-right" : "text-left"}`}>
+                    <label className="text-xs font-bold text-slate-700">{t("privacyLabel")}</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setAccountType("public")}
-                        className={`py-2 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        className={`py-2.5 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           accountType === "public"
                             ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm"
                             : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                         }`}
                       >
                         <span className={`w-2 h-2 rounded-full ${accountType === "public" ? "bg-indigo-600 animate-pulse" : "bg-slate-400"}`} />
-                        عام (قابل للبحث)
+                        {t("privacyPublic")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setAccountType("private")}
-                        className={`py-2 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        className={`py-2.5 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           accountType === "private"
                             ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm"
                             : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                         }`}
                       >
                         <span className={`w-2 h-2 rounded-full ${accountType === "private" ? "bg-amber-500 animate-pulse" : "bg-slate-400"}`} />
-                        خاص (مخفي للخصوصية)
+                        {t("privacyPrivate")}
                       </button>
                     </div>
                     <p className="text-3xs text-slate-450 leading-relaxed">
-                      * الحساب العام يسمح للمشتركين والمنسقين الآخرين بالبحث عنك وسحب معلومات الاتصال عبر بريدك الإلكتروني.
+                      {t("privacyNote")}
                     </p>
                   </div>
 
                   {/* Color choices */}
                   <div className="flex flex-col gap-1.5 mt-1">
-                    <label className="text-xs font-bold text-slate-700">اللون الرمزي للشخصية (أفاتار):</label>
+                    <label className="text-xs font-bold text-slate-700">{t("avatarLabel")}</label>
                     <div className="flex items-center gap-3 py-1">
                       {AVATAR_COLORS.map((avatar, idx) => (
                         <button
@@ -630,7 +657,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                           className={`w-8 h-8 rounded-lg relative transition-all ${avatar.class} flex items-center justify-center border-2 ${
                             selectedColor === avatar.class ? "border-slate-805 scale-110 shadow-sm" : "border-transparent opacity-80 hover:opacity-100"
                           }`}
-                          title={avatar.name}
+                          title={lang === "ar" ? avatar.arabicFallback : avatar.nameKey}
                         >
                           {selectedColor === avatar.class && (
                             <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
@@ -649,12 +676,12 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                     {authLoading ? (
                       <>
                         <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        جاري حجز الاسم والتحويل للغرفة...
+                        {t("submitSignupLoading")}
                       </>
                     ) : (
                       <>
                         <UserPlus className="w-4 h-4" />
-                        حفظ العضوية ودخول الغرفة فوراً
+                        {t("submitSignup")}
                       </>
                     )}
                   </button>
@@ -662,70 +689,70 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
               ) : (
                 /* Password Recovery Frame */
                 <form onSubmit={handleRecovery} className="flex flex-col gap-4 animate-fadeIn">
-                  <div className="text-right">
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">استعادة الرقم السري للحساب</h3>
-                    <p className="text-2xs text-slate-400 mb-4">أدخل الاسم والبريد الإلكتروني المسجل للحساب لتعيين كلمة مرور جديدة</p>
+                  <div className={`${isRtl ? "text-right" : "text-left"}`}>
+                    <h3 className="text-sm font-bold text-slate-800 mb-1">{t("recoveryTitle")}</h3>
+                    <p className="text-2xs text-slate-400 mb-4">{t("recoverySub")}</p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">الاسم المستعار للحساب *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("recoveryNickname")}</label>
                     <input
                       type="text"
                       required
                       value={recoveryNickname}
                       onChange={(e) => setRecoveryNickname(e.target.value)}
-                      placeholder="اكتب الاسم المستعار الخاص بك..."
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all text-right"
+                      placeholder={t("nicknamePlaceholder")}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">البريد الإلكتروني المسجل للحساب *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("recoveryEmail")}</label>
                     <input
                       type="email"
                       required
                       value={recoveryEmail}
                       onChange={(e) => setRecoveryEmail(e.target.value)}
-                      placeholder="EX: your_email@example.com"
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all font-mono text-right"
+                      placeholder={t("emailPlaceholder")}
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-808 placeholder-slate-400/80 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">كلمة المرور الجديدة المرغوبة *</label>
+                    <label className="text-xs font-bold text-slate-700">{t("recoveryNewPass")}</label>
                     <input
                       type="password"
                       required
                       value={recoveryNewPassword}
                       onChange={(e) => setRecoveryNewPassword(e.target.value)}
-                      placeholder="أدخل كلمة المرور الجديدة السريّة..."
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all font-mono text-right"
+                      placeholder="••••••••••••"
+                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-820 placeholder-slate-400/80 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2 mt-3 text-xs">
                     <button
                       type="submit"
                       disabled={authLoading}
-                      className="flex-1 bg-gradient-to-l from-indigo-650 via-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer"
+                      className="flex-1 bg-gradient-to-l from-indigo-650 via-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {authLoading ? (
                         <>
                           <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          جاري التحقق والتحديث...
+                          {t("submitRecoveryLoading")}
                         </>
                       ) : (
                         <>
-                          <span>تحديث وتركيب كلمة المرور</span>
+                          <span>{t("submitRecovery")}</span>
                         </>
                       )}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setActiveTab("login"); setErrorMessage(null); }}
-                      className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl transition-all border border-slate-200 text-xs cursor-pointer"
+                      className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl transition-all border border-slate-200 cursor-pointer"
                     >
-                      إلغاء لـ تراجع
+                      {t("backToLogin")}
                     </button>
                   </div>
                 </form>
@@ -735,7 +762,7 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
             /* ACTIVE SUCCESSFUL SESSION DISPLAY */
             <div className="flex flex-col justify-between h-full gap-6">
               {/* Profile Card Header */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-right">
+              <div className={`p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 ${isRtl ? "text-right" : "text-left"}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 rounded-xl text-white flex items-center justify-center ${sessionUser.avatarColor} font-bold text-lg shadow-sm border border-black/10`}>
                     {sessionUser.nickname.substring(0, 2).toUpperCase()}
@@ -743,42 +770,42 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                   <div>
                     <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                       {sessionUser.nickname}
-                      <span className="text-3xs px-1.5 py-0.5 bg-emerald-100 border border-emerald-250 text-emerald-800 rounded font-semibold">
-                        عضو موثق
+                      <span className="text-3xs px-1.5 py-0.5 bg-emerald-100 border border-emerald-250 text-emerald-800 rounded font-semibold whitespace-nowrap">
+                        {lang === "ar" ? "عضو موثق" : "Verified Member"}
                       </span>
                     </h4>
-                    <span className="text-3xs text-slate-450 font-mono">{sessionUser.email || "بدون بريد"}</span>
+                    <span className="text-3xs text-slate-450 font-mono">{sessionUser.email || (lang === "ar" ? "بدون بريد" : "No email")}</span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleLogoutSession}
-                  className="p-2 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-xl transition-all border border-transparent hover:border-red-100 flex items-center gap-1 text-2xs font-extrabold cursor-pointer"
-                  title="تسجيل الخروج من الحساب"
+                  className="p-2 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-xl transition-all border border-transparent hover:border-red-100 flex items-center gap-1 text-2xs font-extrabold cursor-pointer whitespace-nowrap"
+                  title={lang === "ar" ? "تسجيل الخروج من الحساب" : "Log out"}
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  خروج
+                  {lang === "ar" ? "خروج" : "Logout"}
                 </button>
               </div>
 
               {/* Room Chooser Frame */}
               <form onSubmit={handleJoinOrCreate} className="flex flex-col gap-4">
-                <div className="text-right">
+                <div className={`${isRtl ? "text-right" : "text-left"}`}>
                   <h3 className="text-xs font-extrabold text-slate-700 mb-1.5 flex items-center gap-1">
                     <Video className="w-4 h-4 text-blue-500" />
-                    عنوان الغرفة المراد الدخول إليها:
+                    {t("roomLabel")}
                   </h3>
                   <input
                     type="text"
                     required
                     value={roomTitle}
                     onChange={(e) => setRoomTitle(e.target.value)}
-                    placeholder="قم بكتابة عنوان اللقاء هنا..."
-                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3.5 text-sm text-slate-805 font-semibold transition-all"
+                    placeholder={t("roomPlaceholder")}
+                    className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3.5 text-sm text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
                   />
-                  <p className="text-3xs text-slate-450 leading-relaxed mt-2">
-                    * ملاحظة: للدخول مع زملائك، يرجى كتابة اسم الغرفة بدقة كاملة. سيتم توجيهك تلقائياً وبأمان.
+                  <p className="text-3xs text-slate-450 leading-relaxed mt-2 text-justify">
+                    * {lang === "ar" ? "ملاحظة: للدخول مع زملائك، يرجى كتابة اسم الغرفة بدقة كاملة. سيتم توجيهك تلقائياً وبأمان." : "Note: To enter with your team, please write the room title accurately. You will be directed securely."}
                   </p>
                 </div>
 
@@ -786,17 +813,17 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
                   id="join_room_btn"
                   type="submit"
                   disabled={isLoading || !roomTitle.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer"
                 >
                   {isLoading ? (
                     <>
                       <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      جاري التحويل لغرفة البث...
+                      {lang === "ar" ? "جاري الاتصال والتحويل لغرفة البث..." : "Connecting and opening live room..."}
                     </>
                   ) : (
                     <>
                       <ArrowRightCircle className="w-4 h-4" />
-                      الاتصال ودخول الغرفة المرئية ({roomTitle})
+                      {lang === "ar" ? `الاتصال ودخول الغرفة المرئية ("${roomTitle}")` : `Connect & Enter Video Room ("${roomTitle}")`}
                     </>
                   )}
                 </button>
@@ -810,9 +837,13 @@ export function LandingPage({ onJoinRoom, isLoading, onOpenAdmin }: LandingPageP
       <footer 
         onDoubleClick={onOpenAdmin}
         className="max-w-7xl mx-auto w-full text-center py-4 border-t border-slate-200 text-2xs text-slate-500 cursor-pointer select-none"
-        title="انقر هنا مرتين للدخول السري"
+        title={lang === "ar" ? "انقر هنا مرتين للدخول السري" : "Double-click here for secret entrance"}
       >
-        تطوير وتشغيل SNNS.PRO • جميع الحقوق محفوظة لغرف ومكالمات البث المباشر ومشاركة الملفات الآمنة 100%. <span onClick={(e) => { e.stopPropagation(); onOpenAdmin(); }} className="opacity-40 hover:opacity-150 cursor-pointer select-none">.</span>
+        {lang === "ar" ? (
+          <>تطوير وتشغيل SNNS.PRO • جميع الحقوق محفوظة لغرف ومكالمات البث المباشر ومشاركة الملفات الآمنة 100%. <span onClick={(e) => { e.stopPropagation(); onOpenAdmin(); }} className="opacity-0 cursor-pointer text-slate-100">.</span></>
+        ) : (
+          <>Powered by SNNS.PRO • All rights reserved for secure video rooms & protected live file transfers 100%. <span onClick={(e) => { e.stopPropagation(); onOpenAdmin(); }} className="opacity-0 cursor-pointer text-slate-100">.</span></>
+        )}
       </footer>
     </div>
   );

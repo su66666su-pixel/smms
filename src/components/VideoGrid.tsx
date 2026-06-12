@@ -32,6 +32,8 @@ interface VideoGridProps {
   onEndCall: () => void;
   nickname: string;
   roomTitle: string;
+  t: (key: string, replacements?: Record<string, string | number>) => string;
+  lang: string;
 }
 
 export function VideoGrid({
@@ -50,10 +52,14 @@ export function VideoGrid({
   onEndCall,
   nickname,
   roomTitle,
+  t,
+  lang,
 }: VideoGridProps) {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const [copied, setCopied] = React.useState(false);
+
+  const isRtl = lang === "ar" || lang === "ur";
 
   // Bind local stream object to HTMLVideoElement
   useEffect(() => {
@@ -77,32 +83,32 @@ export function VideoGrid({
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className={`flex flex-col gap-4 h-full ${isRtl ? "text-right" : "text-left"}`}>
       {/* Top Bar Detail Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+      <div className={`bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
         <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <div className="text-right">
-            <h4 className="text-sm font-bold text-slate-855 text-slate-800">{roomTitle}</h4>
-            <p className="text-xxs text-slate-400 font-mono mt-0.5">معرف الغرفة المفتوع للجميع</p>
+          <div>
+            <h4 className="text-sm font-bold text-slate-800">{roomTitle}</h4>
+            <p className="text-xxs text-slate-400 font-mono mt-0.5">{t("roomSubheadingOpen")}</p>
           </div>
         </div>
         
         {/* Copy share link button */}
         <button
           onClick={copyRoomLink}
-          className="flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs px-4 py-2 rounded-xl hover:bg-blue-100/60 transition-all font-semibold active:scale-95 shadow-sm"
-          title="افتح مشاركة الرابط"
+          className="flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs px-4 py-2 rounded-xl hover:bg-blue-105 transition-all font-semibold active:scale-95 shadow-sm cursor-pointer"
+          title={lang === "ar" ? "افتح مشاركة الرابط" : "Copy shareable meeting link"}
         >
           {copied ? (
             <>
-              <Check className="w-4 h-4 text-emerald-600" />
-              تم نسخ الرابط!
+              <Check className="w-4 h-4 text-emerald-600 font-bold" />
+              {t("linkCopiedGrid")}
             </>
           ) : (
             <>
               <Copy className="w-4 h-4" />
-              انسخ بريد/رابط الدعوة اللحظي
+              {t("copyInviteGridBtn")}
             </>
           )}
         </button>
@@ -111,15 +117,15 @@ export function VideoGrid({
       {/* Main Video Camera Workspace */}
       <div className="flex-1 min-h-[350px] relative grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Local Stream Window */}
-        <div className="bg-slate-900 border border-slate-800/40 rounded-2xl overflow-hidden relative group shadow-md flex items-center justify-center">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative group shadow-md flex items-center justify-center">
           {isVideoOff ? (
-            <div className="text-center p-4 flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-red-950/40 border border-red-500/30 flex items-center justify-center text-red-400">
+            <div className="text-center p-4 flex flex-col items-center gap-3 font-sans">
+              <div className="w-16 h-16 rounded-full bg-red-950/45 border border-red-500/30 flex items-center justify-center text-red-400">
                 <VideoOff className="w-8 h-8" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-200">كاميراتك مغلقة الآن</p>
-                <p className="text-2xs text-slate-400 mt-1">انقر على زر الكاميرا بالأسفل لاستئناف العرض</p>
+                <p className="text-xs font-bold text-slate-205 text-white">{t("camDisabledTitle")}</p>
+                <p className="text-2xs text-slate-400 mt-1">{t("camDisabledDesc")}</p>
               </div>
             </div>
           ) : (
@@ -138,8 +144,8 @@ export function VideoGrid({
           )}
 
           {/* Floating User Info overlay */}
-          <div className="absolute bottom-4 right-4 left-4 bg-slate-950/80 backdrop-blur-md border border-slate-800/50 rounded-xl p-2.5 px-3.5 flex items-center justify-between z-10 shadow-lg">
-            <span className="text-xs font-bold text-white shrink-0">{nickname} (أنت)</span>
+          <div className="absolute bottom-4 right-4 left-4 bg-slate-950/80 backdrop-blur-md border border-slate-850 rounded-xl p-2.5 px-3.5 flex items-center justify-between z-10 shadow-lg" dir={isRtl ? "rtl" : "ltr"}>
+            <span className="text-xs font-bold text-white shrink-0">{nickname} ({t("badgeYou")})</span>
             <div className="flex gap-1.5">
               {isMuted && (
                 <span className="p-1 rounded-md bg-red-500/20 text-red-400 border border-red-500/30">
@@ -156,7 +162,7 @@ export function VideoGrid({
         </div>
 
         {/* Remote Stream Window */}
-        <div className="bg-slate-900 border border-slate-800/40 rounded-2xl overflow-hidden relative group shadow-md flex items-center justify-center">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative group shadow-md flex items-center justify-center">
           {callState === "connected" && remoteStream ? (
             <>
               <video
@@ -165,71 +171,71 @@ export function VideoGrid({
                 playsInline
                 className="w-full h-full object-cover"
               />
-              <div className="absolute top-3 left-3 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-full text-xxs font-mono text-emerald-300 animate-pulse">
+              <div className="absolute top-3 left-3 bg-emerald-500/20 border border-emerald-500/35 px-2.5 py-1 rounded-full text-xxs font-mono text-emerald-300 animate-pulse">
                 LIVE HD
               </div>
-              <div className="absolute bottom-4 right-4 left-4 bg-slate-950/80 backdrop-blur-md border border-slate-800/50 rounded-xl p-2.5 px-3.5 flex items-center justify-between z-10 shadow-lg">
+              <div className="absolute bottom-4 right-4 left-4 bg-slate-950/80 backdrop-blur-md border border-slate-850 rounded-xl p-2.5 px-3.5 flex items-center justify-between z-10 shadow-lg">
                 <span className="text-xs font-bold text-white">
-                  {activeCall ? (activeCall.callerId === localStream?.id ? "الطرف الآخر" : activeCall.callerName) : "الطرف الآخر"}
+                  {activeCall ? (activeCall.callerId === localStream?.id ? t("remoteParticipantLabel") : activeCall.callerName) : t("remoteParticipantLabel")}
                 </span>
               </div>
             </>
           ) : (
-            <div className="text-center p-6 flex flex-col items-center gap-4">
+            <div className="text-center p-6 flex flex-col items-center gap-4 font-sans max-w-sm">
               {callState === "ringing-out" ? (
                 <>
                   <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 animate-pulse">
                     <Phone className="w-8 h-8 animate-bounce" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-blue-450 text-blue-400 animate-pulse">جاري الرنين والاتصال حالياً...</p>
-                    <p className="text-2xs text-slate-400 mt-1">بانتظار قبول الطرف الآخر للدخول المباشر</p>
+                    <p className="text-xs font-bold text-blue-400 animate-pulse">{t("ringingCallTitle")}</p>
+                    <p className="text-2xs text-slate-400 mt-1">{t("ringingCallDesc")}</p>
                   </div>
                   <button
                     onClick={onEndCall}
-                    className="mt-2 bg-red-650/15 hover:bg-red-650/20 border border-red-500/30 text-red-350 text-red-400 text-xs px-4 py-2 rounded-xl transition-all font-semibold"
+                    className="mt-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 text-xs px-4 py-2 rounded-xl transition-all font-semibold cursor-pointer"
                   >
-                    إلغاء الاتصال
+                    {t("cancelCallBtn")}
                   </button>
                 </>
               ) : callState === "ringing-in" ? (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-emerald-550/15 border border-emerald-500/30 flex items-center justify-center text-emerald-405 text-emerald-400 animate-ping">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 animate-ping">
                     <Phone className="w-8 h-8" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-emerald-400">مكالمة واردة من: {activeCall?.callerName}</p>
-                    <p className="text-2xs text-slate-400 mt-1">يريد الطرف الآخر القيام باتصال مرئي معكم الآن</p>
+                    <p className="text-xs font-bold text-emerald-450 text-emerald-500">{t("incomingCallFrom", { caller: activeCall?.callerName || "" })}</p>
+                    <p className="text-2xs text-slate-400 mt-1">{t("incomingCallDesc")}</p>
                   </div>
                   <div className="flex gap-3 mt-2">
                     <button
                       onClick={onAcceptCall}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl transition-all shadow-md"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
                     >
-                      قبول والرد
+                      {t("acceptCallBtn")}
                     </button>
                     <button
                       onClick={onEndCall}
-                      className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-300 font-semibold text-xs px-5 py-2.5 rounded-xl transition-all"
+                      className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-300 font-semibold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer"
                     >
-                      رفض
+                      {t("rejectBtn")}
                     </button>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-600">
+                  <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-650">
                     <PhoneOff className="w-8 h-8" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-350 text-slate-400">لا يوجد اتصال مرئي نشط الآن</p>
-                    <p className="text-2xs text-slate-500 mt-1">ابدأ اتصالاً مرئياً مباشراً في الغرفة لدعوة الآخرين</p>
+                    <p className="text-xs font-bold text-slate-300">{t("noActiveCallTitle")}</p>
+                    <p className="text-2xs text-slate-400 mt-1">{t("noActiveCallDesc")}</p>
                   </div>
                   <button
                     onClick={onStartCall}
-                    className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-6 py-3 rounded-xl transition-colors shadow-md"
+                    className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-6 py-3 rounded-xl transition-colors shadow-md cursor-pointer"
                   >
-                    بدء بث واتصال مرئي بقوة WebRTC
+                    {t("startWebRtcCallBtn")}
                   </button>
                 </>
               )}
@@ -239,16 +245,16 @@ export function VideoGrid({
       </div>
 
       {/* Call Floating Action Overlays Controls / Dashboard */}
-      <div className="bg-[#172033] border border-slate-700 rounded-2xl p-4 flex justify-center items-center gap-4 shadow-lg">
+      <div className="bg-[#172033] border border-slate-700 rounded-2xl p-4 flex justify-center items-center gap-4 shadow-lg shrink-0">
         {/* Toggle Muted state */}
         <button
           onClick={onToggleMute}
-          className={`p-3.5 rounded-xl border transition-all ${
+          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
             isMuted
               ? "bg-red-600/30 border-red-500/40 text-red-400"
               : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
           }`}
-          title={isMuted ? "إلغاء كتم الصوت" : "كتم المايكرفون"}
+          title={isMuted ? (lang === "ar" ? "إلغاء كتم الصوت" : "Unmute Microphone") : (lang === "ar" ? "كتم المايكرفون" : "Mute Microphone")}
         >
           {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
@@ -256,12 +262,12 @@ export function VideoGrid({
         {/* Toggle Video state */}
         <button
           onClick={onToggleVideo}
-          className={`p-3.5 rounded-xl border transition-all ${
+          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
             isVideoOff
               ? "bg-red-600/30 border-red-500/40 text-red-400"
               : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
           }`}
-          title={isVideoOff ? "تشغيل الكاميرا" : "إيقاف الكاميرا"}
+          title={isVideoOff ? (lang === "ar" ? "تشغيل الكاميرا" : "Turn Video On") : (lang === "ar" ? "إيقاف الكاميرا" : "Turn Video Off")}
         >
           {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
         </button>
@@ -269,12 +275,12 @@ export function VideoGrid({
         {/* Screen sharing button */}
         <button
           onClick={onToggleScreenShare}
-          className={`p-3.5 rounded-xl border transition-all ${
+          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
             isScreenSharing
-              ? "bg-indigo-650/40 border-indigo-500/40 text-indigo-300"
+              ? "bg-indigo-600/40 border-indigo-500/45 text-indigo-300"
               : "bg-[#0b0f19] border-slate-700 text-slate-200 hover:bg-slate-900 hover:text-white"
           }`}
-          title={isScreenSharing ? "المشاركة الحالية نشطة" : "مشاركة الشاشة بالكامل"}
+          title={isScreenSharing ? (lang === "ar" ? "المشاركة الحالية نشطة" : "Sharing active") : (lang === "ar" ? "مشاركة الشاشة بالكامل" : "Share screen")}
         >
           <Tv className="w-5 h-5" />
         </button>
@@ -286,11 +292,11 @@ export function VideoGrid({
         {callState !== "idle" && (
           <button
             onClick={onEndCall}
-            className="p-3.5 rounded-xl bg-red-650 hover:bg-red-700 text-white font-bold transition-all shadow-md flex items-center justify-center gap-2"
-            title="إنهاء وإغلاق مكالمة الفيديو"
+            className="p-3.5 rounded-xl bg-red-650 hover:bg-red-700 text-white font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer font-sans"
+            title={lang === "ar" ? "إنهاء وإغلاق مكالمة الفيديو" : "End call"}
           >
             <PhoneOff className="w-5 h-5" />
-            <span className="hidden sm:inline text-xs mt-0.5">إنهاء الاتصال</span>
+            <span className="hidden sm:inline text-xs mt-0.5">{t("endCallBtn")}</span>
           </button>
         )}
       </div>
