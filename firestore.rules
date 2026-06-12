@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation definitions
+    function isValidRoom(data) {
+      return data.keys().hasAll(['title', 'hostId', 'createdAt'])
+        && data.keys().size() == 3
+        && data.title is string && data.title.size() <= 100
+        && data.hostId is string && data.hostId.size() <= 128
+        && (data.createdAt is string || data.createdAt is timestamp);
+    }
+
+    function isValidParticipant(data) {
+      return data.keys().hasAll(['uid', 'name', 'joinedAt', 'isActive', 'avatar'])
+        && data.keys().size() == 5
+        && data.uid is string && data.uid.size() <= 128 && (request.auth == null || data.uid == request.auth.uid)
+        && data.name is string && data.name.size() <= 100
+        && (data.joinedAt is string || data.joinedAt is timestamp)
+        && data.isActive is bool
+        && data.avatar is string && data.avatar.size() <= 10000;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['senderId', 'senderName', 'senderAvatar', 'createdAt'])
+        && data.keys().size() <= 6
+        && data.senderId is string && (request.auth == null || data.senderId == request.auth.uid)
+        && data.senderName is string && data.senderName.size() <= 100
+        && data.senderAvatar is string && data.senderAvatar.size() <= 10000
+        && (data.createdAt is string || data.createdAt is timestamp)
+        && (!data.keys().hasAny(['text']) || (data.text is string && data.text.size() <= 10000))
+        && (!data.keys().hasAny(['file']) || (
+          data.file is map 
+          && data.file.keys().hasAll(['name', 'type', 'dataUrl'])
+          && data.file.keys().size() <= 4
+          && data.file.name is string && data.file.name.size() <= 256
+          && data.file.type is string && data.file.type.size() <= 128
+          && data.file.dataUrl is string && data.file.dataUrl.size() <= 1100000
+          && (!data.file.keys().hasAny(['size']) || data.file.size is number)
+        ));
+    }
+
+    function isValidCall(data) {
+      return data.keys().hasAll(['callerId', 'callerName', 'status', 'createdAt'])
+        && data.keys().size() <= 7
+        && data.callerId is string && data.callerId.size() <= 128 && (request.auth == null || data.callerId == request.auth.uid)
+        && data.callerName is string && data.callerName.size() <= 100
+        && data.status is string && (data.status == 'ringing' || data.status == 'active' || data.status == 'ended')
+        && (data.createdAt is string || data.createdAt is timestamp)
+        && (!data.keys().hasAny(['endedAt']) || (data.endedAt is string || data.endedAt is timestamp))
+        && (!data.keys().hasAny(['offer']) || (
+          data.offer is map && data.offer.keys().hasAll(['type', 'sdp']) && data.offer.keys().size() <= 3
+          && data.offer.type is string && data.offer.sdp is string && data.offer.sdp.size() <= 15000
+        ))
+        && (!data.keys().hasAny(['answer']) || (
+          data.answer is map && data.answer.keys().hasAll(['type', 'sdp']) && data.answer.keys().size() <= 3
+          && data.answer.type is string && data.answer.sdp is string && data.answer.sdp.size() <= 15000
+        ));
+    }
+
+    function isValidCandidate(data) {
+      return data.keys().hasAll(['candidate'])
+        && data.keys().size() <= 4
+        && data.candidate is string && data.candidate.size() <= 5000
+        && (!data.keys().hasAny(['sdpMid']) || (data.sdpMid == null || data.sdpMid is string))
+        && (!data.keys().hasAny(['sdpMLineIndex']) || (data.sdpMLineIndex == null || data.sdpMLineIndex is number))
+        && (!data.keys().hasAny(['usernameFragment']) || (data.usernameFragment == null || data.usernameFragment is string));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['nickname', 'status', 'uid', 'createdAt'])
+        && data.keys().size() <= 6
+        && data.nickname is string && data.nickname.size() <= 100
+        && data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected')
+        && data.uid is string
+        && data.createdAt is string;
+    }
+
+    // Secure collections
+    match /users/{nickname} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if true;
+      allow update, delete: if true;
+    }
+
+    match /rooms/{roomId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+      
+      match /participants/{participantId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create, update: if isSignedIn() && isValidId(roomId) && isValidId(participantId) && (request.auth == null || participantId == request.auth.uid) && isValidParticipant(incoming());
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(participantId) && (request.auth == null || participantId == request.auth.uid || get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId == request.auth.uid);
+      }
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create: if isSignedIn() && isValidId(roomId) && isValidId(messageId) && isValidMessage(incoming());
+        allow update: if isSignedIn() && isValidId(roomId) && isValidId(messageId) && (request.auth == null || incoming().senderId == request.auth.uid) && isValidMessage(incoming());
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(messageId) && (request.auth == null || existing().senderId == request.auth.uid || get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId == request.auth.uid);
+      }
+
+      match /calls/{callId} {
+        allow read: if isSignedIn() && isValidId(roomId) && isValidId(callId);
+        allow create: if isSignedIn() && isValidId(roomId) && isValidId(callId) && isValidCall(incoming()) && (request.auth == null || incoming().callerId == request.auth.uid);
+        allow update: if isSignedIn() && isValidId(roomId) && isValidId(callId) && isValidCall(incoming()) && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'endedAt'])) ||
+          ((request.auth == null || existing().callerId == request.auth.uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'offer', 'endedAt']))
+        );
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(callId) && (request.auth == null || existing().callerId == request.auth.uid || get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId == request.auth.uid);
+
+        match /callerCandidates/{candidateId} {
+          allow read: if isSignedIn() && isValidId(roomId) && isValidId(callId);
+          allow create: if isSignedIn() && isValidId(roomId) && isValidId(callId) && isValidId(candidateId) && isValidCandidate(incoming());
+          allow delete: if isSignedIn() && isValidId(roomId) && isValidId(callId) && isValidId(candidateId);
+        }
+
+        match /calleeCandidates/{candidateId} {
+          allow read: if isSignedIn() && isValidId(roomId) && isValidId(callId);
+          allow create: if isSignedIn() && isValidId(roomId) && isValidId(callId) && isValidId(candidateId) && isValidCandidate(incoming());
+          allow delete: if isSignedIn() && isValidId(roomId) && isValidId(callId) && isValidId(candidateId);
+        }
+      }
+    }
+  }
+}

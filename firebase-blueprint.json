@@ -1,0 +1,131 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "A communication room containing chat, signaling and participants",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "hostId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "hostId", "createdAt"]
+    },
+    "Participant": {
+      "title": "Participant",
+      "description": "An active user participant in a communication room",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" },
+        "avatar": { "type": "string" }
+      },
+      "required": ["uid", "name", "joinedAt", "isActive"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A text, image, or file message sent inside a room",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "file": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string" },
+            "size": { "type": "number" },
+            "dataUrl": { "type": "string" }
+          },
+          "required": ["name", "type", "dataUrl"]
+        }
+      },
+      "required": ["senderId", "senderName", "createdAt"]
+    },
+    "Call": {
+      "title": "Call",
+      "description": "A WebRTC calling session state in a room",
+      "type": "object",
+      "properties": {
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "status": { "type": "string", "enum": ["ringing", "active", "ended"] },
+        "offer": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "sdp": { "type": "string" }
+          }
+        },
+        "answer": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "sdp": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["callerId", "callerName", "status", "createdAt"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "WebRTC Ice Candidate signaling wrapper",
+      "type": "object",
+      "properties": {
+        "candidate": { "type": "string" },
+        "sdpMid": { "type": "string" },
+        "sdpMLineIndex": { "type": "number" }
+      },
+      "required": ["candidate"]
+    },
+    "User": {
+      "title": "User",
+      "description": "An approved or pending user registered in SNNS.PRO",
+      "type": "object",
+      "properties": {
+        "nickname": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nickname", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{nickname}": {
+      "schema": "User",
+      "description": "Collection of all pending, approved, and rejected usernames"
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Collection of all video chat rooms"
+    },
+    "/rooms/{roomId}/participants/{participantId}": {
+      "schema": "Participant",
+      "description": "Active participants inside the specified room"
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages sent in a room including chat text, files, and images"
+    },
+    "/rooms/{roomId}/calls/{callId}": {
+      "schema": "Call",
+      "description": "Active calls within a room for WebRTC connection setup"
+    },
+    "/rooms/{roomId}/calls/{callId}/callerCandidates/{candidateId}": {
+      "schema": "Candidate",
+      "description": "ICE Candidates provided by the caller of WebRTC"
+    },
+    "/rooms/{roomId}/calls/{callId}/calleeCandidates/{candidateId}": {
+      "schema": "Candidate",
+      "description": "ICE Candidates provided by the callee of WebRTC"
+    }
+  }
+}

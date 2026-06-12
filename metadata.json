@@ -1,0 +1,9 @@
+{
+  "name": "محادثات فيديو ومشاركة ملفات",
+  "description": "برنامج محادثات فيديو جماعية، اتصال مرئي بالكامل، ومشاركة الصور والملفات في غرف محادثة فورية مأمنة.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
