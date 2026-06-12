@@ -448,8 +448,7 @@ export function VideoGrid({
                     className="bg-gradient-to-r from-blue-650 to-indigo-650 hover:from-blue-700 hover:to-indigo-700 hover:scale-105 active:scale-95 text-white text-xs font-bold px-7 py-3 rounded-xl transition-all shadow-xl flex items-center gap-2 cursor-pointer border border-blue-500/25"
                   >
                     <Phone className="w-4 h-4 animate-pulse" />
-                    <span>{t("startWebRtcCallBtn")}
-                    </span>
+                    <span>{t("startWebRtcCallBtn")}</span>
                   </button>
                 )}
               </div>
@@ -459,29 +458,35 @@ export function VideoGrid({
         </div>
 
         {/* Call Floating Action Overlays Controls / Dashboard (HUD) - Floating over the Video */}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-wrap items-center justify-center gap-2 md:gap-3 bg-[#0a0f1d]/90 backdrop-blur-xl border border-slate-800 shadow-2xl p-2.5 px-4 rounded-2xl w-[94%] sm:w-auto max-w-[96%] transition-all duration-300">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-nowrap items-center justify-center gap-3 bg-[#070b15]/90 backdrop-blur-2xl border border-slate-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-2.5 px-4 rounded-full w-max max-w-[96%] transition-all duration-300">
           
           {/* 1. 📞 Audio Call (اتصال صوتي) */}
           <div className="relative group flex items-center justify-center">
             <button
               type="button"
               onClick={callState !== "idle" ? onToggleMute : onStartCall}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold active:scale-95 ${
-                isMuted && callState !== "idle"
-                  ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
-                  : "bg-emerald-600/20 text-emerald-400 border border-emerald-550/30 hover:bg-emerald-600/30"
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
+                callState === "idle"
+                  ? "bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800 hover:border-slate-700"
+                  : isMuted
+                    ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
+                    : "bg-emerald-600/20 text-emerald-450 border-emerald-550/40 hover:bg-emerald-600/30"
               }`}
             >
-              <span className="text-sm">📞</span>
-              <span>{audioCallLabel}</span>
+              {callState !== "idle" && isMuted ? (
+                <MicOff className="w-5 h-5" />
+              ) : (
+                <Mic className="w-5 h-5" />
+              )}
             </button>
 
             {/* Tooltip */}
-            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
-              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
-                {tTooltipAudio}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-250 pointer-events-none z-50 flex flex-col items-center select-none shadow-2xl">
+              <div className="bg-slate-950 border border-slate-800 text-white px-3 py-2 rounded-xl whitespace-nowrap text-right flex flex-col items-center gap-0.5 shadow-2xl">
+                <span className="text-slate-400 font-extrabold text-[9px] uppercase tracking-wider">{audioCallLabel}</span>
+                <span className="text-[10.5px] font-medium text-slate-200">{tTooltipAudio}</span>
               </div>
-              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+              <div className="w-2.5 h-2.5 bg-slate-950 border-r border-b border-slate-800 rotate-45 -mt-1.5 shadow-sm" />
             </div>
           </div>
 
@@ -490,22 +495,28 @@ export function VideoGrid({
             <button
               type="button"
               onClick={callState !== "idle" ? onToggleVideo : onStartCall}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold active:scale-95 ${
-                isVideoOff && callState !== "idle"
-                  ? "bg-red-500/30 text-red-400 border border-red-505/40 hover:bg-red-500/45"
-                  : "bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30"
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
+                callState === "idle"
+                  ? "bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800 hover:border-slate-700"
+                  : isVideoOff
+                    ? "bg-red-500/20 text-red-500 border-red-505/40 hover:bg-red-500/30"
+                    : "bg-blue-600/20 text-blue-400 border-blue-500/40 hover:bg-blue-600/30"
               }`}
             >
-              <span className="text-sm">🎥</span>
-              <span>{videoCallLabel}</span>
+              {callState !== "idle" && isVideoOff ? (
+                <VideoOff className="w-5 h-5" />
+              ) : (
+                <Video className="w-5 h-5" />
+              )}
             </button>
 
             {/* Tooltip */}
-            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
-              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
-                {tTooltipVideo}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-250 pointer-events-none z-50 flex flex-col items-center select-none shadow-2xl">
+              <div className="bg-slate-950 border border-slate-800 text-white px-3 py-2 rounded-xl whitespace-nowrap text-right flex flex-col items-center gap-0.5 shadow-2xl">
+                <span className="text-slate-400 font-extrabold text-[9px] uppercase tracking-wider">{videoCallLabel}</span>
+                <span className="text-[10.5px] font-medium text-slate-200">{tTooltipVideo}</span>
               </div>
-              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+              <div className="w-2.5 h-2.5 bg-slate-950 border-r border-b border-slate-800 rotate-45 -mt-1.5 shadow-sm" />
             </div>
           </div>
 
@@ -514,18 +525,26 @@ export function VideoGrid({
             <button
               type="button"
               onClick={copyRoomLink}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-805 text-slate-200 hover:bg-slate-850 transition-all cursor-pointer text-xs font-bold active:scale-95"
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
+                copied
+                  ? "bg-teal-600/20 border-teal-500/40 text-teal-400"
+                  : "bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800 hover:border-slate-700"
+              }`}
             >
-              <span className="text-xs">➕</span>
-              <span>{copied ? (isArabic ? "تم النسخ!" : "Link Copied!") : addParticipantLabel}</span>
+              {copied ? (
+                <Check className="w-5 h-5" />
+              ) : (
+                <Plus className="w-5 h-5" />
+              )}
             </button>
 
             {/* Tooltip */}
-            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
-              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
-                {tTooltipAdd}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-250 pointer-events-none z-50 flex flex-col items-center select-none shadow-2xl">
+              <div className="bg-slate-950 border border-slate-800 text-white px-3 py-2 rounded-xl whitespace-nowrap text-right flex flex-col items-center gap-0.5 shadow-2xl">
+                <span className="text-slate-400 font-extrabold text-[9px] uppercase tracking-wider">{addParticipantLabel}</span>
+                <span className="text-[10.5px] font-medium text-slate-200">{tTooltipAdd}</span>
               </div>
-              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+              <div className="w-2.5 h-2.5 bg-slate-950 border-r border-b border-slate-800 rotate-45 -mt-1.5 shadow-sm" />
             </div>
           </div>
 
@@ -534,22 +553,22 @@ export function VideoGrid({
             <button
               type="button"
               onClick={() => setIsBlocked(!isBlocked)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-bold active:scale-95 ${
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
                 isBlocked
-                  ? "bg-rose-650 text-white border border-rose-600 hover:bg-rose-700 animate-pulse"
-                  : "bg-amber-600/20 text-amber-500 border border-amber-555/30 hover:bg-amber-655/35"
+                  ? "bg-rose-600/20 text-rose-400 border-rose-500/40 animate-pulse"
+                  : "bg-amber-600/10 border-amber-555/30 text-amber-500 hover:bg-amber-600/20"
               }`}
             >
-              <span className="text-sm">🛡️</span>
-              <span>{blockLabel}</span>
+              <ShieldAlert className="w-5 h-5" />
             </button>
 
             {/* Tooltip */}
-            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
-              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
-                {tTooltipBlock}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-250 pointer-events-none z-50 flex flex-col items-center select-none shadow-2xl">
+              <div className="bg-slate-950 border border-slate-800 text-white px-3 py-2 rounded-xl whitespace-nowrap text-right flex flex-col items-center gap-0.5 shadow-2xl">
+                <span className="text-slate-400 font-extrabold text-[9px] uppercase tracking-wider">{blockLabel}</span>
+                <span className="text-[10.5px] font-medium text-slate-200">{tTooltipBlock}</span>
               </div>
-              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+              <div className="w-2.5 h-2.5 bg-slate-950 border-r border-b border-slate-800 rotate-45 -mt-1.5 shadow-sm" />
             </div>
           </div>
 
@@ -559,27 +578,27 @@ export function VideoGrid({
               <button
                 type="button"
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className={`flex items-center gap-1 px-2.5 py-2 rounded-xl border transition-all cursor-pointer text-xs font-bold active:scale-95 ${
+                className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
                   showMoreMenu
-                    ? "bg-indigo-650 border-indigo-505 text-white"
-                    : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+                    ? "bg-indigo-600 border-indigo-505 text-white"
+                    : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:border-slate-700"
                 }`}
               >
-                <span className="text-sm font-bold">⋮</span>
-                <span>{moreLabel}</span>
+                <MoreVertical className="w-5 h-5" />
               </button>
 
               {/* Tooltip */}
-              <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
-                <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
-                  {tTooltipMore}
+              <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-250 pointer-events-none z-50 flex flex-col items-center select-none shadow-2xl">
+                <div className="bg-slate-950 border border-slate-800 text-white px-3 py-2 rounded-xl whitespace-nowrap text-right flex flex-col items-center gap-0.5 shadow-2xl">
+                  <span className="text-slate-400 font-extrabold text-[9px] uppercase tracking-wider">{moreLabel}</span>
+                  <span className="text-[10.5px] font-medium text-slate-200">{tTooltipMore}</span>
                 </div>
-                <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+                <div className="w-2.5 h-2.5 bg-slate-950 border-r border-b border-slate-800 rotate-45 -mt-1.5 shadow-sm" />
               </div>
             </div>
             
             {showMoreMenu && (
-              <div className={`absolute bottom-11 ${isRtl ? "right-0" : "left-0"} bg-slate-950 border border-slate-800 rounded-xl p-2 w-48 shadow-2xl z-40 flex flex-col gap-1 text-[11px]`}>
+              <div className={`absolute bottom-13 ${isRtl ? "right-0" : "left-0"} bg-slate-950 border border-slate-800 rounded-xl p-2 w-48 shadow-[0_15px_30px_rgba(0,0,0,0.6)] z-40 flex flex-col gap-1 text-[11px] backdrop-blur-xl`}>
                 <button
                   type="button"
                   onClick={() => {
@@ -590,7 +609,7 @@ export function VideoGrid({
                     isScreenSharing ? "text-indigo-400 font-bold" : "text-slate-300"
                   }`}
                 >
-                  <span>🖥️</span>
+                  <Tv className="w-4 h-4 text-indigo-400" />
                   <span>{isArabic ? "مشاركة الشاشة" : "Share Screen"}</span>
                 </button>
                 <button
@@ -601,14 +620,14 @@ export function VideoGrid({
                   }}
                   className="w-full text-right px-3 py-2 text-slate-300 rounded-lg hover:bg-slate-900 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <span>📋</span>
+                  <Copy className="w-4 h-4 text-slate-400" />
                   <span>{isArabic ? "نسخ رابط الغرفة" : "Copy Room Link"}</span>
                 </button>
                 <div className="border-t border-slate-900 my-1" />
                 <div className="px-3 py-1 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-left">
                   {isArabic ? "المعلومات التقنية" : "Technical info"}
                 </div>
-                <div className="px-3 py-1.5 text-slate-450 font-mono text-[9px] flex flex-col gap-0.5 text-left">
+                <div className="px-3 py-1.5 text-slate-400 font-mono text-[9px] flex flex-col gap-0.5 text-left">
                   <div>Room: {roomTitle}</div>
                   <div>Status: {internalStatus}</div>
                   <div>RTC: HD Quality</div>
@@ -629,22 +648,22 @@ export function VideoGrid({
                 }
               }}
               disabled={!isScreenSharing && isVideoOff}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all font-bold text-xs cursor-pointer active:scale-95 ${
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
                 isScreenSharing || !isVideoOff
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600/35"
-                  : "opacity-40 cursor-not-allowed bg-slate-900 border border-slate-800 text-slate-500"
+                  ? "bg-orange-600/20 text-orange-400 border-orange-500/40 hover:bg-orange-600/35"
+                  : "opacity-30 cursor-not-allowed bg-slate-950 border-slate-900 text-slate-650"
               }`}
             >
-              <span className="text-sm">📡</span>
-              <span>{endBroadcastLabel}</span>
+              <Tv className="w-5 h-5" />
             </button>
 
             {/* Tooltip */}
-            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
-              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
-                {tTooltipBroadcast}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-250 pointer-events-none z-50 flex flex-col items-center select-none shadow-2xl">
+              <div className="bg-slate-950 border border-slate-800 text-white px-3 py-2 rounded-xl whitespace-nowrap text-right flex flex-col items-center gap-0.5 shadow-2xl">
+                <span className="text-slate-400 font-extrabold text-[9px] uppercase tracking-wider">{endBroadcastLabel}</span>
+                <span className="text-[10.5px] font-medium text-slate-200">{tTooltipBroadcast}</span>
               </div>
-              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+              <div className="w-2.5 h-2.5 bg-slate-950 border-r border-b border-slate-800 rotate-45 -mt-1.5 shadow-sm" />
             </div>
           </div>
 
@@ -654,28 +673,27 @@ export function VideoGrid({
               <button
                 type="button"
                 onClick={onEndCall}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-650 border border-red-600 hover:bg-red-700 hover:scale-102 text-white transition-all cursor-pointer text-xs font-bold active:scale-95"
+                className="w-11 h-11 rounded-full flex items-center justify-center bg-red-600 hover:bg-red-500 text-white border border-red-500/30 transition-all cursor-pointer active:scale-95 shadow-[0_4px_15px_rgba(239,68,68,0.4)]"
               >
-                <span className="text-sm">❌</span>
-                <span>{endCallLabel}</span>
+                <PhoneOff className="w-5 h-5" />
               </button>
             ) : (
               <button
                 type="button"
                 disabled
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 opacity-40 cursor-not-allowed text-xs font-bold"
+                className="w-11 h-11 rounded-full flex items-center justify-center bg-slate-950 border border-slate-900 text-slate-650 opacity-30 cursor-not-allowed"
               >
-                <span className="text-sm">❌</span>
-                <span>{endCallLabel}</span>
+                <PhoneOff className="w-5 h-5" />
               </button>
             )}
 
             {/* Tooltip */}
-            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center select-none shadow-xl">
-              <div className="bg-slate-900 border border-slate-800 text-white font-semibold text-[10px] px-3 py-1.5 rounded-xl whitespace-nowrap leading-tight backdrop-blur-md">
-                {tTooltipEndCall}
+            <div className="absolute bottom-full mb-3.5 invisible opacity-0 scale-95 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-250 pointer-events-none z-50 flex flex-col items-center select-none shadow-2xl">
+              <div className="bg-slate-950 border border-slate-800 text-white px-3 py-2 rounded-xl whitespace-nowrap text-right flex flex-col items-center gap-0.5 shadow-2xl">
+                <span className="text-slate-400 font-extrabold text-[9px] uppercase tracking-wider">{endCallLabel}</span>
+                <span className="text-[10.5px] font-medium text-slate-200">{tTooltipEndCall}</span>
               </div>
-              <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-805 rotate-45 -mt-1.5 shadow-sm" />
+              <div className="w-2.5 h-2.5 bg-slate-950 border-r border-b border-slate-800 rotate-45 -mt-1.5 shadow-sm" />
             </div>
           </div>
 

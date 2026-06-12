@@ -117,6 +117,10 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /dm_typing/{typingId} {
+      allow read, write: if true;
+    }
+
     match /rooms/{roomId} {
       allow get: if true;
       allow list: if true;

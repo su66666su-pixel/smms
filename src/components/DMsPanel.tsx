@@ -3,7 +3,7 @@ import {
   Send, UploadCloud, FileText, Image as ImageIcon, Download, 
   Trash2, X, Lock, MessageSquare, Users, ChevronLeft, Search, Check, AlertCircle, Clock
 } from "lucide-react";
-import { collection, addDoc, query, where, onSnapshot, getDocs, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, onSnapshot, getDocs, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
 import { processFileForUpload, downloadBase64File } from "../utils/compressor";
 import { syncMessageToSupabase } from "../supabase";
@@ -39,6 +39,63 @@ export function DMsPanel({ currentUsername, lang, t }: DMsPanelProps) {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Typing indicator state and helpers
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
+  const lastTypingSentRef = useRef<boolean>(false);
+  const activePartnerRef = useRef<string | null>(null);
+
+  const sendTypingStatus = async (isTyping: boolean) => {
+    if (!currentUsername || !activePartner) return;
+    try {
+      if (lastTypingSentRef.current === isTyping) return;
+      lastTypingSentRef.current = isTyping;
+
+      const activeId = [currentUsername, activePartner].sort().join("_");
+      await setDoc(doc(db, "dm_typing", `${currentUsername}_${activePartner}`), {
+        username: currentUsername,
+        conversationId: activeId,
+        isTyping: isTyping,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn("Failed to set typing status:", err);
+    }
+  };
+
+  useEffect(() => {
+    const prevPartner = activePartnerRef.current;
+    activePartnerRef.current = activePartner;
+
+    if (prevPartner && currentUsername && prevPartner !== activePartner) {
+      const prevId = [currentUsername, prevPartner].sort().join("_");
+      setDoc(doc(db, "dm_typing", `${currentUsername}_${prevPartner}`), {
+        username: currentUsername,
+        conversationId: prevId,
+        isTyping: false,
+        updatedAt: new Date().toISOString()
+      }).catch(() => {});
+    }
+
+    lastTypingSentRef.current = false;
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    return () => {
+      if (currentUsername && activePartnerRef.current) {
+        const partner = activePartnerRef.current;
+        const activeId = [currentUsername, partner].sort().join("_");
+        setDoc(doc(db, "dm_typing", `${currentUsername}_${partner}`), {
+          username: currentUsername,
+          conversationId: activeId,
+          isTyping: false,
+          updatedAt: new Date().toISOString()
+        }).catch(() => {});
+      }
+    };
+  }, [activePartner, currentUsername]);
 
   // 1. Listen to all direct messages involving current user
   useEffect(() => {

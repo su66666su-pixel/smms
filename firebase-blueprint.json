@@ -142,9 +142,25 @@
         }
       },
       "required": ["sender", "recipient", "createdAt", "conversationId", "participants"]
+    },
+    "DMTyping": {
+      "title": "DMTyping",
+      "description": "Typing status indicator for peer-to-peer private chats",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "isTyping": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["username", "conversationId", "isTyping", "updatedAt"]
     }
   },
   "firestore": {
+    "/dm_typing/{typingId}": {
+      "schema": "DMTyping",
+      "description": "Collection of peer-to-peer private chat typing indicators"
+    },
     "/users/{nickname}": {
       "schema": "User",
       "description": "Collection of all pending, approved, and rejected usernames"
