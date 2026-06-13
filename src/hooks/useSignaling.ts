@@ -209,7 +209,7 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
   }, [activeCall?.id, userId]);
 
   // بدء مكالمة (المتصل)
- // إضافة متغير targetUserId ليستقبل أمر الاتصال من الواجهة
+  // إضافة متغير targetUserId ليستقبل أمر الاتصال من الواجهة
   const startCall = async (targetUserId?: string) => {
     if (!localStream) {
       setError("الرجاء تشغيل الكاميرا والصوت أولاً.");
@@ -232,51 +232,14 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         if (otherPeers.length > 0) {
           targetPeerId = otherPeers[0].userId;
           targetPeerName = otherPeers[0].displayName || "Participant";
-        }
-      }
+        } else {
+          const participantsSnapshot = await getDocs(collection(db, "rooms", roomId, "participants"));
+          const otherParticipants = participantsSnapshot.docs.map((d) => d.data()).filter((p) => p.uid !== userId);
 
-      if (!targetPeerId) {
-        setError("الطرف الآخر غير متصل");
-        setCallState("idle");
-        return;
-      }
-
-      // -- بقية كود دالة startCall كما هو بدون تغيير --
-      const inviteId = `${roomId}_${userId}_${targetPeerId}_${Date.now()}`;
-      currentInviteIdRef.current = inviteId;
-    if (!localStream) {
-      setError("الرجاء تشغيل الكاميرا والصوت أولاً.");
-      return;
-    }
-    setError(null);
-    setCallState("ringing-out");
-
-    try {
-      // الكود القديم:
-const presenceSnapshot = await getDocs(
-  query(collection(db, "room_presence"), where("roomId", "==", roomId), where("isOnline", "==", true))
-);
-
-// استبدله بهذا الكود (للاتصال بأي شخص في الغرفة مباشرة):
-const presenceSnapshot = await getDocs(
-  query(collection(db, "room_presence"), where("roomId", "==", roomId))
-);
-
-      const otherPeers = presenceSnapshot.docs.map((d) => d.data()).filter((p) => p.userId !== userId);
-
-      let targetPeerId = "";
-      let targetPeerName = "";
-
-      if (otherPeers.length > 0) {
-        targetPeerId = otherPeers[0].userId;
-        targetPeerName = otherPeers[0].displayName || otherPeers[0].name || "Participant";
-      } else {
-        const participantsSnapshot = await getDocs(collection(db, "rooms", roomId, "participants"));
-        const otherParticipants = participantsSnapshot.docs.map((d) => d.data()).filter((p) => p.uid !== userId);
-
-        if (otherParticipants.length > 0) {
-          targetPeerId = otherParticipants[0].uid;
-          targetPeerName = otherParticipants[0].name || "Participant";
+          if (otherParticipants.length > 0) {
+            targetPeerId = otherParticipants[0].uid;
+            targetPeerName = otherParticipants[0].name || "Participant";
+          }
         }
       }
 

@@ -949,73 +949,46 @@ export default function App() {
               <span className="text-xs font-bold text-slate-700">{t("activeParticipantsLabel")}</span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              {partici
               {participants.map((part) => {
-  const isRecentSender = !!recentSenders[part.uid];
-  const isMe = part.uid === currentUser.uid;
+                const isRecentSender = !!recentSenders[part.uid];
+                const isMe = part.uid === currentUser.uid;
 
-  return (
-    <div
-      key={part.uid}
-      className={`flex items-center justify-between gap-1 px-3 py-1.5 rounded-xl border transition-all duration-300 relative ${
-        isRecentSender
-          ? "bg-indigo-50/90 dark:bg-indigo-900/30 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.55)] scale-105"
-          : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-      }`}
-    >
-      {/* زر اسم المستخدم (لعرض الملف الشخصي) */}
-      <button
-        type="button"
-        onClick={() => setSelectedProfileUsername(part.name)}
-        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-      >
-        <span className="relative flex h-2.5 w-2.5">
-          {isRecentSender && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>}
-          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isMe ? "bg-blue-600" : "bg-emerald-500"}`} />
-        </span>
-        <span className={`text-xs font-semibold ${isRecentSender ? "text-indigo-800 dark:text-indigo-300" : "text-slate-700 dark:text-slate-200"}`}>
-          {part.name}
-        </span>
-        {isMe && <span className="text-3xs text-slate-450 dark:text-slate-500 font-mono shrink-0">({t("badgeYou")})</span>}
-      </button>
-
-      {/* زر الاتصال المباشر (ميزة إيمو) باللون الذهبي الفاخر */}
-      {!isMe && (
-        <button
-          onClick={() => startCall(part.uid)}
-          className="ms-3 p-1.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/25 border border-[#D4AF37]/40 transition-all cursor-pointer shadow-[0_0_10px_rgba(212,175,55,0.15)] active:scale-95"
-          title={isArabic ? "اتصال مباشر" : "Direct Call"}
-        >
-          <Phone className="w-3.5 h-3.5" />
-        </button>
-      )}
-    </div>
-  );
-})}
-                    {/* Ring animation if sending a message */}
-                    <span className="relative flex h-2.5 w-2.5">
-                      {isRecentSender && (
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                      )}
-                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${part.uid === currentUser.uid ? "bg-blue-600" : "bg-emerald-500"}`} />
-                    </span>
-
-                    <span className={`text-xs font-semibold transition-colors duration-300 ${isRecentSender ? "text-indigo-800" : "text-slate-700 font-medium"}`}>
-                      {part.name}
-                    </span>
-
-                    {part.uid === currentUser.uid && (
-                      <span className="text-3xs text-slate-450 font-mono shrink-0">({t("badgeYou")})</span>
-                    )}
-
-                    {/* Notification badge dot for message */}
-                    {isRecentSender && (
-                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                return (
+                  <div
+                    key={part.uid}
+                    className={`flex items-center justify-between gap-1 px-3 py-1.5 rounded-xl border transition-all duration-300 relative ${
+                      isRecentSender
+                        ? "bg-indigo-50/90 dark:bg-indigo-900/30 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.55)] scale-105"
+                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                    }`}
+                  >
+                    {/* زر اسم المستخدم (لعرض الملف الشخصي) */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfileUsername(part.name)}
+                      className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    >
+                      <span className="relative flex h-2.5 w-2.5">
+                        {isRecentSender && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>}
+                        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isMe ? "bg-blue-600" : "bg-emerald-500"}`} />
                       </span>
+                      <span className={`text-xs font-semibold ${isRecentSender ? "text-indigo-800 dark:text-indigo-300" : "text-slate-700 dark:text-slate-200"}`}>
+                        {part.name}
+                      </span>
+                      {isMe && <span className="text-3xs text-slate-450 dark:text-slate-500 font-mono shrink-0">({t("badgeYou")})</span>}
+                    </button>
+
+                    {/* زر الاتصال المباشر (ميزة إيمو) باللون الذهبي الفاخر */}
+                    {!isMe && (
+                      <button
+                        onClick={() => startCall(part.uid)}
+                        className="ms-3 p-1.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/25 border border-[#D4AF37]/40 transition-all cursor-pointer shadow-[0_0_10px_rgba(212,175,55,0.15)] active:scale-95"
+                        title={lang === "ar" ? "اتصال مباشر" : "Direct Call"}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </button>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
