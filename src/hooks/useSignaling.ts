@@ -126,19 +126,17 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
 
       // استقبال فيديو وصوت الطرف الآخر
       client.on("user-published", async (user, mediaType) => {
-        await client.subscribe(user, mediaType);
-        
-        if (mediaType === "video" && user.videoTrack) {
-          rStream.addTrack(user.videoTrack.getMediaStreamTrack());
-        }
-        if (mediaType === "audio" && user.audioTrack) {
-          rStream.addTrack(user.audioTrack.getMediaStreamTrack());
-        }
-        
-        // تحديث الواجهة بمجرد وصول الفيديو
-        setRemoteStream(new MediaStream(rStream.getTracks()));
-        setCallState("connected");
-      });
+  await client.subscribe(user, mediaType);
+  
+  // شرط صارم: لا تفتح الفيديو إلا إذا كان المستخدم هو "الطرف الآخر"
+  if (user.uid !== userId) {
+    if (mediaType === "video" && user.videoTrack) {
+      const stream = new MediaStream([user.videoTrack.getMediaStreamTrack()]);
+      setRemoteStream(stream);
+      setCallState("connected");
+    }
+  }
+  });
 
       // الانضمام للغرفة برقم المستخدم
       await client.join(AGORA_APP_ID, channelName, null, userId);
