@@ -22,12 +22,9 @@ const configuration = {
         "stun:stun1.l.google.com:19302",
         "stun:stun2.l.google.com:19302",
       ],
-    },
-    {
-      urls: "turn:YOUR_DOMAIN:3478",
-      username: "user",
-      credential: "password"
     }
+    // ملاحظة: تم تعطيل خادم TURN الوهمي مؤقتاً لتجنب فشل الاتصال التلقائي
+    // سيتم إضافته لاحقاً عند تجهيز خادم TURN حقيقي لضمان عمل التطبيق على شبكات 5G
   ],
 };
 
@@ -61,7 +58,6 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     callStateRef.current = callState;
   }, [callState]);
 
-  // Clean up WebRTC resources and active channels
   const cleanupConnection = () => {
     try {
       if (unsubscribeCallerCandidatesRef.current) {
@@ -91,7 +87,6 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     }
   };
 
-  // Helper: Create peer connection and bind standard event listeners
   const createPeerConnection = (inviteId: string) => {
     if (pcRef.current) {
       pcRef.current.close();
@@ -100,41 +95,27 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     const pc = new RTCPeerConnection(configuration);
     pcRef.current = pc;
 
-    // Monitor WebRTC connection states
     pc.onconnectionstatechange = () => {
       console.log("WebRTC Connection State:", pc.connectionState);
       if (pc.connectionState === "connected") {
-        console.log("peer connected");
         setCallState("connected");
       } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        setError("فشل WebRTC ICE / يحتاج TURN server");
-        console.error("WebRTC Connection Failed");
+        setError("تحتاج إلى خادم TURN لتجاوز جدار الحماية للشبكة الحالية");
       }
     };
 
-    pc.oniceconnectionstatechange = () => {
-      console.log("WebRTC ICE Connection State:", pc.iceConnectionState);
-      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
-        console.log("peer connected");
-        setCallState("connected");
-      } else if (pc.iceConnectionState === "failed") {
-        setError("فشل WebRTC ICE");
-        console.error("WebRTC ICE Connection Failed");
-      }
-    };
-
-    // Track remote stream insertions
     const rStream = new MediaStream();
     setRemoteStream(rStream);
 
     pc.ontrack = (event) => {
-      console.log("WebRTC: Remote track received");
+      console.log("WebRTC: Remote track received successfully");
       event.streams[0].getTracks().forEach((track) => {
         rStream.addTrack(track);
       });
+      // تحديث الحالة لضمان إعادة تصيير الواجهة عند استلام الفيديو
+      setRemoteStream(new MediaStream(rStream.getTracks()));
     };
 
-    // Add local tracks to peer connection
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         pc.addTrack(track, localStreamRef.current!);
@@ -144,14 +125,13 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     return pc;
   };
 
-  // 1. Listen for call invites directed to current user
+  // 1. الاستماع للدعوات الواردة
   useEffect(() => {
     if (!roomId || roomId === "default" || !userId || userId === "guest") {
       cleanupConnection();
       return;
     }
 
-    // Realtime queries for ringing call invites addressed to current user
     const q = query(
       collection(db, "call_invites"),
       where("roomId", "==", roomId),
@@ -160,12 +140,11 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     );
 
     const unsubIncoming = onSnapshot(q, (snapshot) => {
-      if (callStateRef.current !== "idle") return; // active call takes preference
+      if (callStateRef.current !== "idle") return;
 
       if (!snapshot.empty) {
         const docSnap = snapshot.docs[0];
         const data = docSnap.data();
-        console.log("call invite received"); // Log as requested in step 9
 
         currentInviteIdRef.current = docSnap.id;
         setActiveCall({
@@ -180,79 +159,70 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
       }
     });
 
-    return () => {
-      unsubIncoming();
-    };
+    return () => unsubIncoming();
   }, [roomId, userId]);
 
-  // 2. Realtime updates listener for the active call invitation document
+  // 2. مراقبة حالة المكالمة النشطة (تم إصلاح الفخ البرمجي هنا)
   useEffect(() => {
     if (!activeCall?.id) return;
 
     const callDocRef = doc(db, "call_invites", activeCall.id);
     const unsub = onSnapshot(callDocRef, async (snapshot) => {
-      if (!snapshot.exists()) {
-        if (callStateRef.current !== "idle") {
-          console.log("Call invitation doc deleted, cleaning up...");
-          cleanupConnection();
-        }
+      if (!snapshot.exists() || snapshot.data().status === "ended") {
+        cleanupConnection();
         return;
       }
 
       const data = snapshot.data();
 
-      if (data.status === "ended") {
-        console.log("Call ended by peer, cleaning up...");
-        cleanupConnection();
-        return;
-      }
-
-      // If caller is in ringing-out and receives Callee's accepted response with answer
+      // عندما يستلم المتصل الإجابة (Answer)
       if (data.status === "accepted" && data.fromUserId === userId && callStateRef.current === "ringing-out" && data.answer) {
-        console.log("answer received"); // Log as requested in step 9
         try {
           if (pcRef.current) {
             const remoteDesc = new RTCSessionDescription(data.answer);
             await pcRef.current.setRemoteDescription(remoteDesc);
             setCallState("connected");
+
+            // الإصلاح: نبدأ الاستماع لـ ICE Candidates للطرف الآخر *فقط* بعد تركيب الـ Answer
+            const calleeCandidatesCollection = collection(db, "call_invites", activeCall.id, "calleeCandidates");
+            unsubscribeCalleeCandidatesRef.current = onSnapshot(calleeCandidatesCollection, (snap) => {
+              snap.docChanges().forEach(async (change) => {
+                if (change.type === "added") {
+                  const candidateData = change.doc.data();
+                  try {
+                    await pcRef.current?.addIceCandidate(new RTCIceCandidate(candidateData));
+                  } catch (e) {
+                    console.warn("Failed to add ICE candidate:", e);
+                  }
+                }
+              });
+            });
           }
         } catch (e: any) {
-          console.error("Error setting remote description on caller:", e);
-          setError("فشل WebRTC ICE");
+          setError("فشل في مزامنة بيانات الاتصال.");
         }
       }
-    }, (err) => {
-      console.error("Error watching invitation state:", err);
     });
 
     unsubscribeCallRef.current = unsub;
-    return () => {
-      unsub();
-    };
+    return () => unsub();
   }, [activeCall?.id, userId]);
 
-  // Start a new Call as Caller and direct it to the target user
+  // بدء مكالمة (المتصل)
   const startCall = async () => {
     if (!localStream) {
-      setError("الرجاء تشغيل الكاميرا والصوت أولاً للاتصال.");
+      setError("الرجاء تشغيل الكاميرا والصوت أولاً.");
       return;
     }
     setError(null);
     setCallState("ringing-out");
 
     try {
-      // Find the recipient from room_presence
       const presenceSnapshot = await getDocs(
-        query(
-          collection(db, "room_presence"),
-          where("roomId", "==", roomId),
-          where("isOnline", "==", true)
-        )
+        query(collection(db, "room_presence"), where("roomId", "==", roomId), where("isOnline", "==", true))
       );
 
-      const otherPeers = presenceSnapshot.docs
-        .map((d) => d.data())
-        .filter((p) => p.userId !== userId);
+      const otherPeers = presenceSnapshot.docs.map((d) => d.data()).filter((p) => p.userId !== userId);
 
       let targetPeerId = "";
       let targetPeerName = "";
@@ -261,11 +231,8 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         targetPeerId = otherPeers[0].userId;
         targetPeerName = otherPeers[0].displayName || otherPeers[0].name || "Participant";
       } else {
-        // Robust fallback to participants subcollection
         const participantsSnapshot = await getDocs(collection(db, "rooms", roomId, "participants"));
-        const otherParticipants = participantsSnapshot.docs
-          .map((d) => d.data())
-          .filter((p) => p.uid !== userId);
+        const otherParticipants = participantsSnapshot.docs.map((d) => d.data()).filter((p) => p.uid !== userId);
 
         if (otherParticipants.length > 0) {
           targetPeerId = otherParticipants[0].uid;
@@ -273,28 +240,21 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         }
       }
 
-      // If no other participant is found, set error as requested in step 10
       if (!targetPeerId) {
         setError("الطرف الآخر غير متصل");
         setCallState("idle");
         return;
       }
 
-      // Create random ID for invitation doc
       const inviteId = `${roomId}_${userId}_${targetPeerId}_${Date.now()}`;
       currentInviteIdRef.current = inviteId;
 
       const pc = createPeerConnection(inviteId);
 
-      // Handle sending local ICE candidates
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
           try {
-            await addDoc(
-              collection(db, "call_invites", inviteId, "callerCandidates"),
-              event.candidate.toJSON()
-            );
-            console.log("ice candidate sent"); // Log as requested in step 9
+            await addDoc(collection(db, "call_invites", inviteId, "callerCandidates"), event.candidate.toJSON());
           } catch (e) {
             console.error("Failed to upload caller candidate:", e);
           }
@@ -310,16 +270,11 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         fromUserName: userName,
         toUserId: targetPeerId,
         status: "ringing",
-        offer: {
-          type: offerDescription.type,
-          sdp: offerDescription.sdp,
-        },
+        offer: { type: offerDescription.type, sdp: offerDescription.sdp },
         createdAt: new Date().toISOString(),
       };
 
       await setDoc(doc(db, "call_invites", inviteId), invitePayload);
-      console.log("call invite sent"); // Log as requested in step 9
-      console.log("offer sent"); // Log as requested in step 9
 
       setActiveCall({
         id: inviteId,
@@ -330,33 +285,15 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         createdAt: invitePayload.createdAt,
       });
 
-      // Listen for remote callee ICE candidates
-      const calleeCandidatesCollection = collection(db, "call_invites", inviteId, "calleeCandidates");
-      unsubscribeCalleeCandidatesRef.current = onSnapshot(calleeCandidatesCollection, (snapshot) => {
-        snapshot.docChanges().forEach(async (change) => {
-          if (change.type === "added") {
-            const data = change.doc.data();
-            const candidate = new RTCIceCandidate(data);
-            try {
-              if (pcRef.current) {
-                await pcRef.current.addIceCandidate(candidate);
-                console.log("ice candidate received"); // Log as requested in step 9
-              }
-            } catch (e) {
-              console.warn("Failed to add ICE candidate:", e);
-            }
-          }
-        });
-      });
+      // تم نقل الاستماع لـ Callee Candidates إلى useEffect لضمان الترتيب الصحيح
 
     } catch (e: any) {
-      console.error("Error creating video call:", e);
       setError("حدث خطأ أثناء الاتفاق.");
       setCallState("idle");
     }
   };
 
-  // Answer Incoming Call as Callee
+  // قبول المكالمة (المُستقبِل)
   const acceptCall = async () => {
     const inviteId = currentInviteIdRef.current;
     if (!activeCall || !activeCall.offer || !inviteId) {
@@ -368,49 +305,33 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     try {
       const pc = createPeerConnection(inviteId);
 
-      // Handle sending local ICE candidates
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
           try {
-            await addDoc(
-              collection(db, "call_invites", inviteId, "calleeCandidates"),
-              event.candidate.toJSON()
-            );
-            console.log("ice candidate sent"); // Log as requested in step 9
+            await addDoc(collection(db, "call_invites", inviteId, "calleeCandidates"), event.candidate.toJSON());
           } catch (e) {
             console.error("Failed to upload callee candidate:", e);
           }
         }
       };
 
-      // Set offer description (remote) and create answer (local)
       const offerDesc = new RTCSessionDescription(activeCall.offer as RTCSessionDescriptionInit);
       await pc.setRemoteDescription(offerDesc);
 
       const answerDescription = await pc.createAnswer();
       await pc.setLocalDescription(answerDescription);
 
-      // Update the invite document so caller knows we accepted
       await updateDoc(doc(db, "call_invites", inviteId), {
         status: "accepted",
-        answer: {
-          type: answerDescription.type,
-          sdp: answerDescription.sdp,
-        },
+        answer: { type: answerDescription.type, sdp: answerDescription.sdp },
       });
 
-      // Listen for caller's ICE candidates
       const callerCandidatesCollection = collection(db, "call_invites", inviteId, "callerCandidates");
       unsubscribeCallerCandidatesRef.current = onSnapshot(callerCandidatesCollection, (snapshot) => {
         snapshot.docChanges().forEach(async (change) => {
           if (change.type === "added") {
-            const data = change.doc.data();
-            const candidate = new RTCIceCandidate(data);
             try {
-              if (pcRef.current) {
-                await pcRef.current.addIceCandidate(candidate);
-                console.log("ice candidate received"); // Log as requested in step 9
-              }
+              await pcRef.current?.addIceCandidate(new RTCIceCandidate(change.doc.data()));
             } catch (e) {
               console.warn("Failed to add ICE candidate:", e);
             }
@@ -420,35 +341,20 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
 
       setCallState("connected");
     } catch (e: any) {
-      console.error("Error accepting call:", e);
       setError("حدث خطأ أثناء قبول الاتصال المرئي.");
       setCallState("idle");
     }
   };
 
-  // Decline/End Call for both caller and callee
   const endCall = async () => {
     const inviteId = currentInviteIdRef.current || activeCall?.id;
     try {
       if (inviteId) {
-        const callDocRef = doc(db, "call_invites", inviteId);
-        await updateDoc(callDocRef, { status: "ended" });
-        // Optionally clean up the doc completely
-        await deleteDoc(callDocRef);
+        await updateDoc(doc(db, "call_invites", inviteId), { status: "ended" });
       }
-    } catch (e) {
-      console.error("Error ending signaling session:", e);
-    }
+    } catch (e) {}
     cleanupConnection();
   };
 
-  return {
-    activeCall,
-    remoteStream,
-    callState,
-    error,
-    startCall,
-    acceptCall,
-    endCall,
-  };
+  return { activeCall, remoteStream, callState, error, startCall, acceptCall, endCall };
 }
