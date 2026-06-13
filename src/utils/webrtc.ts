@@ -142,17 +142,61 @@ export function createMockStream(username: string): MediaStream {
 export async function getMediaStream(username: string, options: { video: boolean; audio: boolean }): Promise<{
   stream: MediaStream;
   isMock: boolean;
+  errorText?: string;
 }> {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: options.video,
       audio: options.audio
     });
+    
+    // Log success as requested in step 9
+    console.log("camera started");
+    console.log("mic started");
     return { stream, isMock: false };
-  } catch (error) {
-    console.error("Camera/Mic access denied or missing. Activating Canvas emulation:", error);
+  } catch (error: any) {
+    console.error("Camera/Mic joint access denied or missing. Activating Canvas emulation:", error);
+    
+    let micError = false;
+    let camError = false;
+
+    // Check microphone individually
+    if (options.audio) {
+      try {
+        const streamMic = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamMic.getTracks().forEach((track) => track.stop());
+      } catch (e) {
+        micError = true;
+      }
+    }
+
+    // Check camera individually
+    if (options.video) {
+      try {
+        const streamCam = await navigator.mediaDevices.getUserMedia({ video: true });
+        streamCam.getTracks().forEach((track) => track.stop());
+      } catch (e) {
+        camError = true;
+      }
+    }
+
+    let errorText = "";
+    if (micError && camError) {
+      errorText = "المايك والكاميرا مرفوضة";
+    } else if (micError) {
+      errorText = "المايك مرفوض";
+    } else if (camError) {
+      errorText = "الكاميرا مرفوضة";
+    } else {
+      errorText = "تعذر تشغيل الصوت أو الصورة";
+    }
+
+    // Still log success for whichever actually worked
+    if (!camError && options.video) console.log("camera started");
+    if (!micError && options.audio) console.log("mic started");
+
     // return mock stream
     const mock = createMockStream(username);
-    return { stream: mock, isMock: true };
+    return { stream: mock, isMock: true, errorText };
   }
 }

@@ -356,6 +356,16 @@ export default function App() {
       await setDoc(participantDocRef, participantPayload);
       await syncParticipantToSupabase(safeRoomId, uid, participantPayload);
 
+      // Save room presence inside explicit collection as requested in step 2
+      const presenceDocRef = doc(db, "room_presence", `${safeRoomId}_${uid}`);
+      await setDoc(presenceDocRef, {
+        roomId: safeRoomId,
+        userId: uid,
+        displayName: name,
+        isOnline: true,
+        joinedAt: new Date().toISOString()
+      });
+
     } catch (e) {
       console.error("Room Access Error:", e);
       alert("حدث خطأ أثناء الدخول للغرفة.");
@@ -625,6 +635,7 @@ export default function App() {
         try {
           await deleteDoc(doc(db, "rooms", rId, "participants", uId));
           await deleteParticipantFromSupabase(rId, uId);
+          await deleteDoc(doc(db, "room_presence", `${rId}_${uId}`));
         } catch (e) {}
       }
 

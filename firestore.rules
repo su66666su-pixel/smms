@@ -121,6 +121,22 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /room_presence/{presenceId} {
+      allow read, write: if true;
+    }
+
+    match /call_invites/{inviteId} {
+      allow read, write: if true;
+      
+      match /callerCandidates/{candidateId} {
+        allow read, write: if true;
+      }
+      
+      match /calleeCandidates/{candidateId} {
+        allow read, write: if true;
+      }
+    }
+
     match /rooms/{roomId} {
       allow get: if true;
       allow list: if true;
