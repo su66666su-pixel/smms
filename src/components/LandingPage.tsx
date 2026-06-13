@@ -494,10 +494,11 @@ export function LandingPage({
   const isRtl = lang === "ar" || lang === "ur";
 
   return (
-    <div className={`min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between p-4 md:p-8 font-sans transition-colors duration-300 relative`} dir={isRtl ? "rtl" : "ltr"}>
-      {/* Decorative ambient blobs */}
-      <div className={`absolute top-10 ${isRtl ? "right-10" : "left-10"} w-72 h-72 bg-blue-600/5 rounded-full blur-3xl pointer-events-none`} />
-      <div className={`absolute bottom-10 ${isRtl ? "left-10" : "right-10"} w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl pointer-events-none`} />
+    <div className="min-h-screen bg-[#090514] text-slate-100 flex flex-col justify-between p-4 md:p-8 font-sans transition-colors duration-300 relative overflow-x-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      {/* Premium ambient light effects */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6c47ff]/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#a236ff]/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[40%] left-[30%] w-[400px] h-[400px] bg-[#3b82f6]/5 rounded-full blur-[150px] pointer-events-none" />
 
       {/* Header */}
       <header className="max-w-7xl mx-auto w-full flex items-center justify-between py-4 z-30">
@@ -506,22 +507,24 @@ export function LandingPage({
           onDoubleClick={onOpenAdmin}
           title={lang === "ar" ? "انقر مرتين سريعتين كإجراء سري" : "Double click as a secret action"}
         >
-          <div className="p-2.5 bg-blue-50 border border-blue-105 rounded-xl">
-            <Video className="w-6 h-6 text-blue-600" />
+          <div className="p-2.5 bg-[#171138] border border-[#6c47ff]/30 rounded-2xl shadow-[0_0_15px_rgba(108,71,255,0.2)]">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-[#6c47ff]" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/>
+            </svg>
           </div>
-          <div className="text-right">
-            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-l from-blue-700 to-indigo-600 bg-clip-text text-transparent">
-              {t("platformName")}
+          <div className={isRtl ? "text-right" : "text-left"}>
+            <h1 className="text-xl font-extrabold tracking-tight">
+              SNNS <span className="text-[#6c47ff] font-black">PRO</span>
             </h1>
-            <p className="text-xs text-slate-500 font-mono font-bold tracking-wide">SNNS.PRO WEB SERVICES</p>
+            <p className="text-[9px] text-[#8683a3] font-mono font-bold tracking-widest uppercase">SNNS.PRO WEB SERVICES</p>
           </div>
         </div>
 
         {/* Multi-Language Selector Dropdown Integration */}
         <div className="flex items-center gap-3">
-          <LanguageSelector currentLanguage={lang} onLanguageChange={onLanguageChange} dark={false} />
+          <LanguageSelector currentLanguage={lang} onLanguageChange={onLanguageChange} dark={true} />
           
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-600 border border-slate-200 rounded-full px-3 py-1.5 bg-white shadow-sm">
+          <div className="hidden md:flex items-center gap-2 text-xs text-slate-300 border border-[#241f48] rounded-full px-3 py-1.5 bg-[#130f2b]/80 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             {t("secureServers")}
           </div>
@@ -535,54 +538,54 @@ export function LandingPage({
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`p-1 px-3 w-fit rounded-full bg-blue-50 border border-blue-105 text-blue-700 text-xs font-semibold flex items-center gap-1.5 ${isRtl ? "mr-0" : "ml-0"}`}
+            className={`p-1.5 px-3.5 w-fit rounded-full bg-[#18113c] border border-[#6c47ff]/40 text-[#a38cff] text-xs font-bold flex items-center gap-1.5 ${isRtl ? "mr-0" : "ml-0"} shadow-[0_0_15px_rgba(108,71,255,0.15)]`}
           >
             <Sparkles className="w-3.5 h-3.5" />
             {t("subTitle")}
           </motion.div>
 
-          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-snug">
+          <h2 className="text-3xl md:text-4xl font-black text-white leading-tight">
             {t("heroTitle")}
           </h2>
 
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <p className="text-sm text-slate-300 leading-relaxed font-sans">
             {t("heroDesc")}
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-            <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-550/30 transition-all flex items-start gap-3 shadow-sm">
-              <Users className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-2xl border border-[#241f48] bg-[#120d2b]/60 hover:border-[#6c47ff]/40 transition-all flex items-start gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+              <Users className="w-5 h-5 text-[#6c47ff] shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-slate-800">{t("feature1Title")}</h4>
-                <p className="text-2xs text-slate-500 mt-1">{t("feature1Desc")}</p>
+                <h4 className="text-xs font-bold text-slate-200">{t("feature1Title")}</h4>
+                <p className="text-2xs text-[#9d99c4] mt-1 leading-relaxed">{t("feature1Desc")}</p>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-550/30 transition-all flex items-start gap-3 shadow-sm">
-              <MessageSquare className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-2xl border border-[#241f48] bg-[#120d2b]/60 hover:border-[#6c47ff]/40 transition-all flex items-start gap-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+              <MessageSquare className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-slate-800">{t("feature2Title")}</h4>
-                <p className="text-2xs text-slate-500 mt-1">{t("feature2Desc")}</p>
+                <h4 className="text-xs font-bold text-slate-200">{t("feature2Title")}</h4>
+                <p className="text-2xs text-[#9d99c4] mt-1 leading-relaxed">{t("feature2Desc")}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Interactive dynamic forms & Account controllers */}
-        <div className="md:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-md relative overflow-hidden min-h-[460px] flex flex-col justify-between">
-          <div className="absolute top-0 right-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-indigo-500" />
+        <div className="md:col-span-7 bg-[#110c28]/95 border border-[#292255] rounded-3xl p-6 md:p-8 shadow-[0_15px_50px_rgba(0,0,0,0.6),0_0_40px_rgba(108,71,255,0.08)] relative overflow-hidden min-h-[460px] flex flex-col justify-between">
+          <div className="absolute top-0 right-0 left-0 h-[2.5px] bg-gradient-to-r from-[#3b82f6] via-[#6c47ff] to-[#a236ff]" />
           
           {/* Notifications */}
           {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl flex items-center gap-2 mb-4 animate-fadeIn">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="p-3 bg-red-950/40 border border-red-500/30 text-red-300 text-xs rounded-xl flex items-center gap-2 mb-4 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-xl flex items-center gap-2 mb-4 animate-fadeIn">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 text-emerald-350 text-xs rounded-xl flex items-center gap-2 mb-4 animate-fadeIn">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
               <span>{successMessage}</span>
             </div>
           )}
@@ -591,14 +594,14 @@ export function LandingPage({
           {!sessionUser ? (
             <div>
               {/* Login or Register Tabs */}
-              <div className="flex border-b border-slate-100 pb-4 mb-6 gap-4">
+              <div className="flex border-b border-[#241f48] pb-4 mb-6 gap-4">
                 <button
                   type="button"
                   onClick={() => { setActiveTab("login"); setErrorMessage(null); }}
-                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     activeTab === "login"
-                      ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100/50" 
-                      : "text-slate-500 hover:bg-slate-50"
+                      ? "bg-[#6c47ff] text-white shadow-[0_4px_12px_rgba(108,71,255,0.3)]" 
+                      : "text-slate-400 hover:bg-[#18123c]/50 hover:text-white"
                   }`}
                 >
                   <LogIn className="w-4 h-4" />
@@ -607,10 +610,10 @@ export function LandingPage({
                 <button
                   type="button"
                   onClick={() => { setActiveTab("signup"); setErrorMessage(null); }}
-                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     activeTab === "signup"
-                      ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100/50" 
-                      : "text-slate-500 hover:bg-slate-50"
+                      ? "bg-[#6c47ff] text-white shadow-[0_4px_12px_rgba(108,71,255,0.3)]" 
+                      : "text-slate-400 hover:bg-[#18123c]/50 hover:text-white"
                   }`}
                 >
                   <UserPlus className="w-4 h-4" />
@@ -622,12 +625,12 @@ export function LandingPage({
               {activeTab === "login" ? (
                 <form onSubmit={handleLogin} className="flex flex-col gap-4">
                   <div className={`${isRtl ? "text-right" : "text-left"}`}>
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">{t("loginDetailsTitle")}</h3>
+                    <h3 className="text-sm font-bold text-slate-100 mb-1">{t("loginDetailsTitle")}</h3>
                     <p className="text-2xs text-slate-400 mb-4">{t("loginDetailsSub")}</p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("nicknameLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("nicknameLabel")}</label>
                     <div className="relative">
                       <input
                         type="text"
@@ -635,18 +638,18 @@ export function LandingPage({
                         value={loginNickname}
                         onChange={(e) => setLoginNickname(e.target.value)}
                         placeholder={t("nicknamePlaceholder")}
-                        className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-808 placeholder-slate-400/80 transition-all ${isRtl ? "text-right" : "text-left"}`}
+                        className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] ${isRtl ? "text-right" : "text-left"}`}
                       />
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300 flex items-center justify-between font-sans">
                       <span>{t("passwordLabel")}</span>
                       <button
                         type="button"
                         onClick={() => { setActiveTab("recovery"); setErrorMessage(null); }}
-                        className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline cursor-pointer font-bold"
+                        className="text-[11px] text-[#6c47ff] hover:text-[#8061ff] hover:underline cursor-pointer font-bold"
                       >
                         {t("forgotPass")}
                       </button>
@@ -658,21 +661,21 @@ export function LandingPage({
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         placeholder="••••••••••••"
-                        className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-808 placeholder-slate-400/80 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
+                        className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition-all font-mono shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] ${isRtl ? "text-right" : "text-left"}`}
                       />
                     </div>
                   </div>
 
                   {/* Integrated Room Name Field */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("roomLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("roomLabel")}</label>
                     <input
                       type="text"
                       required
                       value={roomTitle}
                       onChange={(e) => setRoomTitle(e.target.value)}
                       placeholder={t("roomPlaceholder")}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-sm text-white font-semibold placeholder-[#615994] transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
@@ -680,7 +683,7 @@ export function LandingPage({
                     id="submit_login_btn"
                     type="submit"
                     disabled={authLoading}
-                    className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer"
+                    className="w-full mt-3 bg-[#6c47ff] hover:bg-[#5c38ec] text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_4px_15px_rgba(108,71,255,0.35)] flex items-center justify-center gap-2 text-xs cursor-pointer active:scale-98"
                   >
                     {authLoading ? (
                       <>
@@ -699,85 +702,85 @@ export function LandingPage({
                 /* Registration Frame */
                 <form onSubmit={handleSignup} className="flex flex-col gap-3">
                   <div className={`${isRtl ? "text-right" : "text-left"}`}>
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">{t("signupDetailsTitle")}</h3>
+                    <h3 className="text-sm font-bold text-slate-100 mb-1">{t("signupDetailsTitle")}</h3>
                     <p className="text-2xs text-slate-400 mb-3">{t("signupDetailsSub")}</p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("nicknameLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("nicknameLabel")}</label>
                     <input
                       type="text"
                       required
                       value={signupNickname}
                       onChange={(e) => setSignupNickname(e.target.value)}
                       placeholder={t("nicknamePlaceholder")}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 transition-all ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("emailLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("emailLabel")}</label>
                     <input
                       type="email"
                       required
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
                       placeholder={t("emailPlaceholder")}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-3 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-3 py-3 text-xs text-white placeholder-slate-500 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("phoneLabel") || "رقم الهاتف *"}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("phoneLabel") || "رقم الهاتف *"}</label>
                     <input
                       type="tel"
                       required
                       value={signupPhone}
                       onChange={(e) => setSignupPhone(e.target.value)}
                       placeholder={t("phonePlaceholder") || "رقم الجوال للاسترجاع..."}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("passwordLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("passwordLabel")}</label>
                     <input
                       type="password"
                       required
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
                       placeholder="••••••••••••"
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-450 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   {/* Integrated Room Name Field */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("roomLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("roomLabel")}</label>
                     <input
                       type="text"
                       required
                       value={roomTitle}
                       onChange={(e) => setRoomTitle(e.target.value)}
                       placeholder={t("roomPlaceholder")}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-505 outline-none rounded-xl px-4 py-3 text-xs text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-xs text-white font-semibold placeholder-[#615994] transition-all ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   {/* Account Privacy Choice */}
                   <div className={`flex flex-col gap-1.5 mt-1 ${isRtl ? "text-right" : "text-left"}`}>
-                    <label className="text-xs font-bold text-slate-700">{t("privacyLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("privacyLabel")}</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setAccountType("public")}
                         className={`py-2.5 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           accountType === "public"
-                            ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm"
-                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                            ? "bg-[#6c47ff]/20 border-[#6c47ff] text-white shadow-sm"
+                            : "bg-[#18123a] border-[#2d2757] text-slate-400 hover:bg-[#1f1947]"
                         }`}
                       >
-                        <span className={`w-2 h-2 rounded-full ${accountType === "public" ? "bg-indigo-600 animate-pulse" : "bg-slate-400"}`} />
+                        <span className={`w-2 h-2 rounded-full ${accountType === "public" ? "bg-[#33ffaa] animate-pulse" : "bg-slate-400"}`} />
                         {t("privacyPublic")}
                       </button>
                       <button
@@ -785,22 +788,22 @@ export function LandingPage({
                         onClick={() => setAccountType("private")}
                         className={`py-2.5 px-3 rounded-xl border text-2xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           accountType === "private"
-                            ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm"
-                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                            ? "bg-[#6c47ff]/20 border-[#6c47ff] text-white shadow-sm"
+                            : "bg-[#18123a] border-[#2d2757] text-slate-400 hover:bg-[#1f1947]"
                         }`}
                       >
-                        <span className={`w-2 h-2 rounded-full ${accountType === "private" ? "bg-amber-500 animate-pulse" : "bg-slate-400"}`} />
+                        <span className={`w-2 h-2 rounded-full ${accountType === "private" ? "bg-amber-400 animate-pulse" : "bg-slate-400"}`} />
                         {t("privacyPrivate")}
                       </button>
                     </div>
-                    <p className="text-3xs text-slate-450 leading-relaxed">
+                    <p className="text-3xs text-slate-400 leading-relaxed font-sans">
                       {t("privacyNote")}
                     </p>
                   </div>
 
                   {/* Color choices */}
                   <div className="flex flex-col gap-1.5 mt-1">
-                    <label className="text-xs font-bold text-slate-700">{t("avatarLabel")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("avatarLabel")}</label>
                     <div className="flex items-center gap-3 py-1">
                       {AVATAR_COLORS.map((avatar, idx) => (
                         <button
@@ -808,7 +811,7 @@ export function LandingPage({
                           type="button"
                           onClick={() => setSelectedColor(avatar.class)}
                           className={`w-8 h-8 rounded-lg relative transition-all ${avatar.class} flex items-center justify-center border-2 ${
-                            selectedColor === avatar.class ? "border-slate-805 scale-110 shadow-sm" : "border-transparent opacity-80 hover:opacity-100"
+                            selectedColor === avatar.class ? "border-white scale-110 shadow-sm" : "border-transparent opacity-80 hover:opacity-100"
                           }`}
                           title={lang === "ar" ? avatar.arabicFallback : avatar.nameKey}
                         >
@@ -824,7 +827,7 @@ export function LandingPage({
                     id="submit_signup_btn"
                     type="submit"
                     disabled={authLoading}
-                    className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer"
+                    className="w-full mt-2 bg-[#6c47ff] hover:bg-[#5c38ec] text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_4px_15px_rgba(108,71,255,0.35)] flex items-center justify-center gap-2 text-xs cursor-pointer active:scale-98"
                   >
                     {authLoading ? (
                       <>
@@ -843,43 +846,43 @@ export function LandingPage({
                 /* Password Recovery Frame */
                 <form onSubmit={handleRecovery} className="flex flex-col gap-4 animate-fadeIn">
                   <div className={`${isRtl ? "text-right" : "text-left"}`}>
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">{t("recoveryTitle")}</h3>
+                    <h3 className="text-sm font-bold text-slate-100 mb-1">{t("recoveryTitle")}</h3>
                     <p className="text-2xs text-slate-400 mb-4">{t("recoverySub")}</p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("recoveryNickname")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("recoveryNickname")}</label>
                     <input
                       type="text"
                       required
                       value={recoveryNickname}
                       onChange={(e) => setRecoveryNickname(e.target.value)}
                       placeholder={t("nicknamePlaceholder")}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400/80 transition-all ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition-all ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("recoveryEmail")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("recoveryEmail")}</label>
                     <input
                       type="email"
                       required
                       value={recoveryEmail}
                       onChange={(e) => setRecoveryEmail(e.target.value)}
                       placeholder={t("emailPlaceholder")}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-808 placeholder-slate-400/80 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700">{t("recoveryNewPass")}</label>
+                    <label className="text-xs font-bold text-slate-300">{t("recoveryNewPass")}</label>
                     <input
                       type="password"
                       required
                       value={recoveryNewPassword}
                       onChange={(e) => setRecoveryNewPassword(e.target.value)}
                       placeholder="••••••••••••"
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-sm text-slate-820 placeholder-slate-400/80 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition-all font-mono ${isRtl ? "text-right" : "text-left"}`}
                     />
                   </div>
 
@@ -887,7 +890,7 @@ export function LandingPage({
                     <button
                       type="submit"
                       disabled={authLoading}
-                      className="flex-1 bg-gradient-to-l from-indigo-650 via-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                      className="flex-1 bg-[#6c47ff] hover:bg-[#5c38ec] text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_4px_15px_rgba(108,71,255,0.35)] flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                     >
                       {authLoading ? (
                         <>
@@ -903,7 +906,7 @@ export function LandingPage({
                     <button
                       type="button"
                       onClick={() => { setActiveTab("login"); setErrorMessage(null); }}
-                      className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl transition-all border border-slate-200 cursor-pointer"
+                      className="px-4 bg-[#1e1941] hover:bg-[#282255] text-slate-200 font-bold py-3.5 rounded-xl transition-all border border-[#3b3370] cursor-pointer"
                     >
                       {t("backToLogin")}
                     </button>
@@ -914,11 +917,11 @@ export function LandingPage({
               {activeTab !== "recovery" && (
                 <div className="mt-5">
                   <div className="relative flex py-2.5 items-center">
-                    <div className="flex-grow border-t border-slate-200"></div>
-                    <span className="flex-shrink mx-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    <div className="flex-grow border-t border-[#241f48]"></div>
+                    <span className="flex-shrink mx-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider font-sans">
                       {lang === "ar" ? "أو الدخول الآمن" : "Or Secure Login"}
                     </span>
-                    <div className="flex-grow border-t border-slate-200"></div>
+                    <div className="flex-grow border-t border-[#241f48]"></div>
                   </div>
 
                   <button
@@ -942,26 +945,26 @@ export function LandingPage({
             /* ACTIVE SUCCESSFUL SESSION DISPLAY */
             <div className="flex flex-col justify-between h-full gap-6">
               {/* Profile Card Header */}
-              <div className={`p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 ${isRtl ? "text-right" : "text-left"}`}>
+              <div className={`p-4 rounded-2xl bg-[#16103b] border border-[#2c2656] flex items-center justify-between gap-3 shadow-md ${isRtl ? "text-right" : "text-left"}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl text-white flex items-center justify-center ${sessionUser.avatarColor} font-bold text-lg shadow-sm border border-black/10`}>
+                  <div className={`w-12 h-12 rounded-xl text-white flex items-center justify-center ${sessionUser.avatarColor} font-extrabold text-lg shadow-[0_4px_10px_rgba(0,0,0,0.3)] border border-white/10`}>
                     {sessionUser.nickname.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-1.5 font-sans">
                       {sessionUser.nickname}
-                      <span className="text-3xs px-1.5 py-0.5 bg-emerald-100 border border-emerald-250 text-emerald-800 rounded font-semibold whitespace-nowrap">
+                      <span className="text-3xs px-1.5 py-0.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 rounded font-semibold whitespace-nowrap">
                         {lang === "ar" ? "عضو موثق" : "Verified Member"}
                       </span>
                     </h4>
-                    <span className="text-3xs text-slate-450 font-mono">{sessionUser.email || (lang === "ar" ? "بدون بريد" : "No email")}</span>
+                    <span className="text-3xs text-[#a09cc5] font-mono">{sessionUser.email || (lang === "ar" ? "بدون بريد" : "No email")}</span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleLogoutSession}
-                  className="p-2 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-xl transition-all border border-transparent hover:border-red-100 flex items-center gap-1 text-2xs font-extrabold cursor-pointer whitespace-nowrap"
+                  className="p-2 hover:bg-red-950/40 text-red-400 hover:text-red-300 rounded-xl transition-all border border-transparent hover:border-red-500/20 flex items-center gap-1 text-2xs font-extrabold cursor-pointer whitespace-nowrap"
                   title={lang === "ar" ? "تسجيل الخروج من الحساب" : "Log out"}
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -972,14 +975,14 @@ export function LandingPage({
               {/* Room Chooser Frame with join vs create switcher */}
               <div className="flex flex-col gap-4">
                 {/* Modern Switcher Bar */}
-                <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 shrink-0 border border-slate-205">
+                <div className="flex bg-[#16103b] p-1.5 rounded-2xl gap-1 shrink-0 border border-[#2d2757]">
                   <button
                     type="button"
                     onClick={() => setRoomFlow("join")}
-                    className={`flex-1 py-2.5 px-3 rounded-xl text-2xs md:text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-2xs md:text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       roomFlow === "join"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                        ? "bg-[#6c47ff] text-white shadow-[0_4px_12px_rgba(108,71,255,0.3)]"
+                        : "bg-transparent text-slate-400 hover:bg-[#1f1a4e]/40 hover:text-white"
                     }`}
                   >
                     <Users className="w-4 h-4" />
@@ -988,10 +991,10 @@ export function LandingPage({
                   <button
                     type="button"
                     onClick={() => setRoomFlow("create")}
-                    className={`flex-1 py-2.5 px-3 rounded-xl text-2xs md:text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-2xs md:text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       roomFlow === "create"
-                        ? "bg-emerald-600 text-white shadow-sm"
-                        : "bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                        ? "bg-emerald-600 text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)]"
+                        : "bg-transparent text-slate-400 hover:bg-[#1f1a4e]/40 hover:text-white"
                     }`}
                   >
                     <Sparkles className="w-4 h-4" />
@@ -1001,8 +1004,8 @@ export function LandingPage({
 
                 <form onSubmit={handleJoinOrCreate} className="flex flex-col gap-4">
                   <div className={`${isRtl ? "text-right" : "text-left"}`}>
-                    <h3 className="text-xs font-extrabold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Video className="w-4 h-4 text-blue-500" />
+                    <h3 className="text-xs font-semibold text-[#a8a4ce] mb-1.5 flex items-center gap-1.5 label-sans">
+                      <Video className="w-4 h-4 text-[#6c47ff]" />
                       {roomFlow === "join" 
                         ? t("roomLabel") 
                         : (lang === "ar" ? "اسم الغرفة الجديدة المراد إنشاؤها وتأسيسها *" : "New Room Name to Setup *")}
@@ -1013,25 +1016,25 @@ export function LandingPage({
                       value={roomTitle}
                       onChange={(e) => setRoomTitle(e.target.value)}
                       placeholder={t("roomPlaceholder")}
-                      className={`w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 outline-none rounded-xl px-4 py-3.5 text-sm text-slate-805 font-semibold transition-all ${isRtl ? "text-right" : "text-left"}`}
+                      className={`w-full bg-[#18123a] border border-[#2d2757] focus:bg-[#1f1947] focus:border-[#6c47ff] outline-none rounded-xl px-4 py-3.5 text-sm text-white font-semibold transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] ${isRtl ? "text-right" : "text-left"}`}
                     />
                     
                     {roomFlow === "join" ? (
                       /* Active Rooms list directory for join workflow */
-                      <div className="mt-4 border-t border-slate-100 pt-3 flex flex-col gap-2.5">
+                      <div className="mt-4 border-t border-[#241f48] pt-3 flex flex-col gap-2.5">
                         <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
-                          <span className="text-3xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5 text-blue-500" />
+                          <span className="text-3xs font-extrabold text-[#7973aa] uppercase tracking-wider flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-[#6c47ff]" />
                             {lang === "ar" ? "الغرف المتاحة حالياً" : "Active Public Rooms"} ({allRooms.length})
                           </span>
-                          <span className="text-[9.5px] text-blue-650 font-bold">
+                          <span className="text-[10px] text-[#8061ff] font-bold">
                             {lang === "ar" ? "اختر للدخول السريع" : "Click to select"}
                           </span>
                         </div>
 
                         {allRooms.length === 0 ? (
-                          <div className="p-3.5 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                            <p className="text-[10px] text-slate-400 italic">
+                           <div className="p-3.5 text-center border border-dashed border-[#2d2757] rounded-xl bg-[#140e32]/40">
+                            <p className="text-[10px] text-[#746f99] italic">
                               {lang === "ar" ? "لا توجد غرف عامة نشطة حالياً. اكتب اسماً للأعلى وأنشئ غرفتك الخاصة!" : "No active public rooms discovered. Type above to create yours!"}
                             </p>
                           </div>
@@ -1044,12 +1047,12 @@ export function LandingPage({
                                 onClick={() => {
                                   setRoomTitle(room.title);
                                 }}
-                                className={`flex flex-col items-start gap-0.5 p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-xl transition-all text-left w-full cursor-pointer group`}
+                                className={`flex flex-col items-start gap-0.5 p-2 bg-[#18123a] hover:bg-[#20194b] border border-[#2d2757] hover:border-[#6c47ff]/60 rounded-xl transition-all text-left w-full cursor-pointer group`}
                               >
-                                <span className="text-xs font-bold text-slate-805 truncate w-full">
+                                <span className={`text-xs font-bold text-slate-200 truncate w-full ${isRtl ? "text-right" : "text-left"}`}>
                                   🚪 {room.title}
                                 </span>
-                                <span className="text-[9px] text-slate-450 font-mono">
+                                <span className={`text-[9px] text-[#7973aa] font-mono w-full ${isRtl ? "text-right" : "text-left"}`}>
                                   ID: {room.id.substring(0, 10)}
                                 </span>
                               </button>
@@ -1061,13 +1064,13 @@ export function LandingPage({
                       /* Room availability feedback for creation workflow */
                       <div className="mt-2.5">
                         {!roomTitle.trim() ? (
-                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 italic leading-relaxed">
+                          <div className="p-3 rounded-xl bg-[#140e32]/40 border border-[#2d2757] text-[11px] text-[#7b75a6] italic leading-relaxed">
                             {lang === "ar"
                               ? "اكتب اسماً فريداً ومميزاً للغرفة بالأعلى لتأسيسها والبدء في بث مكالمتك ومشاركتها."
                               : "Type a unique name above to start establishing your customized video room."}
                           </div>
                         ) : allRooms.some(r => r.id === roomTitle.trim().toLowerCase().replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g, "-")) ? (
-                          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 leading-relaxed font-semibold flex items-center gap-2">
+                          <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-[11.5px] text-amber-300 leading-relaxed font-semibold flex items-center gap-2">
                             <span>⚠️</span>
                             <span>
                               {lang === "ar"
@@ -1076,7 +1079,7 @@ export function LandingPage({
                             </span>
                           </div>
                         ) : (
-                          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-150 text-[11px] text-emerald-800 leading-relaxed font-semibold flex items-center gap-2">
+                          <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/35 text-[11.5px] text-emerald-300 leading-relaxed font-semibold flex items-center gap-2">
                             <span className="text-sm">✨</span>
                             <span>
                               {lang === "ar"
@@ -1088,7 +1091,7 @@ export function LandingPage({
                       </div>
                     )}
 
-                    <p className="text-3xs text-slate-450 leading-relaxed mt-2.5 text-justify">
+                    <p className="text-3xs text-slate-400 leading-relaxed mt-2.5 text-justify font-sans">
                       * {t("noteJoinRoom")}
                     </p>
                   </div>
@@ -1097,10 +1100,10 @@ export function LandingPage({
                     id="join_room_btn"
                     type="submit"
                     disabled={isLoading || !roomTitle.trim() || (roomFlow === "create" && allRooms.some(r => r.id === roomTitle.trim().toLowerCase().replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g, "-")))}
-                    className={`w-full text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer ${
+                    className={`w-full text-white font-extrabold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs cursor-pointer active:scale-98 ${
                       roomFlow === "create" 
-                        ? "bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed" 
-                        : "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_4px_15px_rgba(16,185,129,0.25)]" 
+                        : "bg-[#6c47ff] hover:bg-[#5c38ec] shadow-[0_4px_15px_rgba(108,71,255,0.35)]"
                     }`}
                   >
                     {isLoading ? (
@@ -1112,12 +1115,12 @@ export function LandingPage({
                       <>
                         {roomFlow === "create" ? (
                           <>
-                            <Sparkles className="w-4 h-4 font-black text-white" />
+                            <Sparkles className="w-4 h-4 text-white" />
                             {t("establishNewRoom", { roomTitle })}
                           </>
                         ) : (
                           <>
-                            <ArrowRightCircle className="w-4 h-4 font-black" />
+                            <ArrowRightCircle className="w-4 h-4" />
                             {t("connectAndEnterRoom", { roomTitle })}
                           </>
                         )}
@@ -1134,7 +1137,7 @@ export function LandingPage({
       {/* Footer */}
       <footer 
         onDoubleClick={onOpenAdmin}
-        className="max-w-7xl mx-auto w-full text-center py-4 border-t border-slate-200 text-2xs text-slate-500 cursor-pointer select-none"
+        className="max-w-7xl mx-auto w-full text-center py-4 border-t border-[#241f48] text-2xs text-[#716c96] hover:text-slate-400 transition-colors cursor-pointer select-none"
         title={t("doubleClickSecret")}
       >
         <span>{t("footerCopyrightText")}</span>
