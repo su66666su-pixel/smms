@@ -40,10 +40,40 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
 
   const unsubscribeCallRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    localStreamRef.current = localStream;
-  }, [localStream]);
+ useEffect(() => {
+  if (!roomId || !userId) return;
 
+  // استعلام ذكي يبحث عن أي دعوة موجهة لي في هذه الغرفة
+  const q = query(
+    collection(db, "call_invites"),
+    where("roomId", "==", roomId),
+    where("toUserId", "==", userId)
+  );
+
+  const unsub = onSnapshot(q, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "added" || change.type === "modified") {
+        const data = change.doc.data();
+        
+        // إذا كانت حالة الدعوة "ringing" ولم نقم بالرد بعد
+        if (data.status === "ringing" && callStateRef.current === "idle") {
+          console.log("🔔 وصلت دعوة اتصال من:", data.fromUserName);
+          currentInviteIdRef.current = change.doc.id;
+          setActiveCall({
+            id: change.doc.id,
+            callerId: data.fromUserId,
+            callerName: data.fromUserName,
+            status: "ringing",
+            createdAt: data.createdAt
+          });
+          setCallState("ringing-in");
+        }
+      }
+    });
+  });
+
+  return () => unsub();
+}, [roomId, userId]);
   useEffect(() => {
     callStateRef.current = callState;
   }, [callState]);
