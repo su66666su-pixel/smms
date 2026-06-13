@@ -978,11 +978,11 @@ export default function App() {
                       {isMe && <span className="text-3xs text-slate-450 dark:text-slate-500 font-mono shrink-0">({t("badgeYou")})</span>}
                     </button>
 
-                    {/* زر الاتصال المباشر (ميزة إيمو) باللون الذهبي الفاخر */}
+                    {/* زر الاتصال المباشر (ميزة إيمو) باللون البنفسجي الفاخر */}
                     {!isMe && (
                       <button
                         onClick={() => startCall(part.uid)}
-                        className="ms-3 p-1.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/25 border border-[#D4AF37]/40 transition-all cursor-pointer shadow-[0_0_10px_rgba(212,175,55,0.15)] active:scale-95"
+                        className="ms-3 p-1.5 rounded-full bg-[#6c47ff]/10 text-[#a18cf5] hover:bg-[#6c47ff]/25 border border-[#6c47ff]/40 transition-all cursor-pointer shadow-[0_0_10px_rgba(108,71,255,0.15)] active:scale-95"
                         title={lang === "ar" ? "اتصال مباشر" : "Direct Call"}
                       >
                         <Phone className="w-3.5 h-3.5" />

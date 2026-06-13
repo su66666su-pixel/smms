@@ -6,27 +6,16 @@ import {
   deleteDoc,
   onSnapshot,
   collection,
-  addDoc,
   getDocs,
   query,
   where,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { CallSession } from "../types";
+import AgoraRTC, { IAgoraRTCClient, ILocalTrack } from "agora-rtc-sdk-ng";
 
-const configuration = {
-  iceServers: [
-    {
-      urls: [
-        "stun:stun.l.google.com:19302",
-        "stun:stun1.l.google.com:19302",
-        "stun:stun2.l.google.com:19302",
-      ],
-    }
-    // ملاحظة: تم تعطيل خادم TURN الوهمي مؤقتاً لتجنب فشل الاتصال التلقائي
-    // سيتم إضافته لاحقاً عند تجهيز خادم TURN حقيقي لضمان عمل التطبيق على شبكات 5G
-  ],
-};
+// جلب مفتاح Agora من متغيرات البيئة في السيرفر
+const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID;
 
 interface UseSignalingProps {
   roomId: string;
@@ -41,14 +30,15 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
   const [callState, setCallState] = useState<"idle" | "ringing-out" | "ringing-in" | "connected">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const currentInviteIdRef = useRef<string | null>(null);
   const callStateRef = useRef(callState);
 
+  // مراجع Agora
+  const agoraClientRef = useRef<IAgoraRTCClient | null>(null);
+  const localTracksRef = useRef<ILocalTrack[]>([]);
+
   const unsubscribeCallRef = useRef<(() => void) | null>(null);
-  const unsubscribeCallerCandidatesRef = useRef<(() => void) | null>(null);
-  const unsubscribeCalleeCandidatesRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     localStreamRef.current = localStream;
@@ -58,24 +48,27 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     callStateRef.current = callState;
   }, [callState]);
 
-  const cleanupConnection = () => {
+  // دالة تنظيف وإغلاق الاتصال
+  const cleanupConnection = async () => {
     try {
-      if (unsubscribeCallerCandidatesRef.current) {
-        unsubscribeCallerCandidatesRef.current();
-        unsubscribeCallerCandidatesRef.current = null;
-      }
-      if (unsubscribeCalleeCandidatesRef.current) {
-        unsubscribeCalleeCandidatesRef.current();
-        unsubscribeCalleeCandidatesRef.current = null;
-      }
       if (unsubscribeCallRef.current) {
         unsubscribeCallRef.current();
         unsubscribeCallRef.current = null;
       }
 
-      if (pcRef.current) {
-        pcRef.current.close();
-        pcRef.current = null;
+      // إغلاق مسارات Agora
+      if (localTracksRef.current.length > 0) {
+        localTracksRef.current.forEach((track) => {
+          track.stop();
+          track.close();
+        });
+        localTracksRef.current = [];
+      }
+
+      // الخروج من غرفة Agora
+      if (agoraClientRef.current) {
+        await agoraClientRef.current.leave();
+        agoraClientRef.current = null;
       }
 
       setRemoteStream(null);
@@ -87,45 +80,67 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     }
   };
 
-  const createPeerConnection = (inviteId: string) => {
-    if (pcRef.current) {
-      pcRef.current.close();
+  // دالة الانضمام لخوادم Agora وبث الفيديو
+  const initAgoraAndJoin = async (channelName: string) => {
+    if (!AGORA_APP_ID) {
+      setError("مفتاح Agora غير متاح في السيرفر.");
+      return;
     }
 
-    const pc = new RTCPeerConnection(configuration);
-    pcRef.current = pc;
+    try {
+      const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      agoraClientRef.current = client;
 
-    pc.onconnectionstatechange = () => {
-      console.log("WebRTC Connection State:", pc.connectionState);
-      if (pc.connectionState === "connected") {
+      const rStream = new MediaStream();
+      setRemoteStream(rStream);
+
+      // استقبال فيديو وصوت الطرف الآخر
+      client.on("user-published", async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+        
+        if (mediaType === "video" && user.videoTrack) {
+          rStream.addTrack(user.videoTrack.getMediaStreamTrack());
+        }
+        if (mediaType === "audio" && user.audioTrack) {
+          rStream.addTrack(user.audioTrack.getMediaStreamTrack());
+        }
+        
+        // تحديث الواجهة بمجرد وصول الفيديو
+        setRemoteStream(new MediaStream(rStream.getTracks()));
         setCallState("connected");
-      } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        setError("تحتاج إلى خادم TURN لتجاوز جدار الحماية للشبكة الحالية");
+      });
+
+      // الانضمام للغرفة برقم المستخدم
+      await client.join(AGORA_APP_ID, channelName, null, userId);
+
+      // تحويل فيديو الكاميرا الحالي إلى مسارات Agora وبثها
+      if (localStreamRef.current) {
+        const tracks: ILocalTrack[] = [];
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        const videoTrack = localStreamRef.current.getVideoTracks()[0];
+
+        if (audioTrack) {
+          const customAudio = AgoraRTC.createCustomAudioTrack({ mediaStreamTrack: audioTrack });
+          tracks.push(customAudio);
+          localTracksRef.current.push(customAudio);
+        }
+        if (videoTrack) {
+          const customVideo = AgoraRTC.createCustomVideoTrack({ mediaStreamTrack: videoTrack });
+          tracks.push(customVideo);
+          localTracksRef.current.push(customVideo);
+        }
+
+        if (tracks.length > 0) {
+          await client.publish(tracks);
+        }
       }
-    };
-
-    const rStream = new MediaStream();
-    setRemoteStream(rStream);
-
-    pc.ontrack = (event) => {
-      console.log("WebRTC: Remote track received successfully");
-      event.streams[0].getTracks().forEach((track) => {
-        rStream.addTrack(track);
-      });
-      // تحديث الحالة لضمان إعادة تصيير الواجهة عند استلام الفيديو
-      setRemoteStream(new MediaStream(rStream.getTracks()));
-    };
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
-        pc.addTrack(track, localStreamRef.current!);
-      });
+    } catch (err) {
+      console.error("Agora Error:", err);
+      setError("فشل الاتصال بخوادم البث المباشر.");
     }
-
-    return pc;
   };
 
-  // 1. الاستماع للدعوات الواردة
+  // 1. الاستماع للدعوات الواردة (الرنين) عبر Firebase
   useEffect(() => {
     if (!roomId || roomId === "default" || !userId || userId === "guest") {
       cleanupConnection();
@@ -152,7 +167,6 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
           callerId: data.fromUserId,
           callerName: data.fromUserName,
           status: "ringing",
-          offer: data.offer,
           createdAt: data.createdAt,
         });
         setCallState("ringing-in");
@@ -162,45 +176,22 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     return () => unsubIncoming();
   }, [roomId, userId]);
 
-  // 2. مراقبة حالة المكالمة النشطة (تم إصلاح الفخ البرمجي هنا)
+  // 2. مراقبة حالة المكالمة النشطة (القبول أو الرفض)
   useEffect(() => {
     if (!activeCall?.id) return;
 
     const callDocRef = doc(db, "call_invites", activeCall.id);
     const unsub = onSnapshot(callDocRef, async (snapshot) => {
-      if (!snapshot.exists() || snapshot.data().status === "ended") {
+      if (!snapshot.exists() || snapshot.data().status === "ended" || snapshot.data().status === "rejected") {
         cleanupConnection();
         return;
       }
 
       const data = snapshot.data();
 
-      // عندما يستلم المتصل الإجابة (Answer)
-      if (data.status === "accepted" && data.fromUserId === userId && callStateRef.current === "ringing-out" && data.answer) {
-        try {
-          if (pcRef.current) {
-            const remoteDesc = new RTCSessionDescription(data.answer);
-            await pcRef.current.setRemoteDescription(remoteDesc);
-            setCallState("connected");
-
-            // الإصلاح: نبدأ الاستماع لـ ICE Candidates للطرف الآخر *فقط* بعد تركيب الـ Answer
-            const calleeCandidatesCollection = collection(db, "call_invites", activeCall.id, "calleeCandidates");
-            unsubscribeCalleeCandidatesRef.current = onSnapshot(calleeCandidatesCollection, (snap) => {
-              snap.docChanges().forEach(async (change) => {
-                if (change.type === "added") {
-                  const candidateData = change.doc.data();
-                  try {
-                    await pcRef.current?.addIceCandidate(new RTCIceCandidate(candidateData));
-                  } catch (e) {
-                    console.warn("Failed to add ICE candidate:", e);
-                  }
-                }
-              });
-            });
-          }
-        } catch (e: any) {
-          setError("فشل في مزامنة بيانات الاتصال.");
-        }
+      // إذا قام الطرف الآخر بالقبول، يتم التأكد من تحديث الحالة لمتصل
+      if (data.status === "accepted" && data.fromUserId === userId && callStateRef.current === "ringing-out") {
+        setCallState("connected");
       }
     });
 
@@ -208,8 +199,7 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     return () => unsub();
   }, [activeCall?.id, userId]);
 
-  // بدء مكالمة (المتصل)
-  // إضافة متغير targetUserId ليستقبل أمر الاتصال من الواجهة
+  // بدء مكالمة (المتصل) - تدعم الاتصال المباشر من الواجهة
   const startCall = async (targetUserId?: string) => {
     if (!localStream) {
       setError("الرجاء تشغيل الكاميرا والصوت أولاً.");
@@ -219,27 +209,19 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     setCallState("ringing-out");
 
     try {
-      let targetPeerId = targetUserId || ""; // أخذ الـ ID المباشر إن وُجد
-      let targetPeerName = "المشارك";
+      let targetPeerId = targetUserId || "";
+      let targetPeerName = "مشارك";
 
-      // إذا لم يتم تحديد شخص معين، يبحث النظام عن أي شخص متاح في الغرفة
+      // البحث عن أول شخص متاح إذا لم يتم التحديد
       if (!targetPeerId) {
         const presenceSnapshot = await getDocs(
           query(collection(db, "room_presence"), where("roomId", "==", roomId))
         );
         const otherPeers = presenceSnapshot.docs.map((d) => d.data()).filter((p) => p.userId !== userId);
-
+        
         if (otherPeers.length > 0) {
           targetPeerId = otherPeers[0].userId;
           targetPeerName = otherPeers[0].displayName || "Participant";
-        } else {
-          const participantsSnapshot = await getDocs(collection(db, "rooms", roomId, "participants"));
-          const otherParticipants = participantsSnapshot.docs.map((d) => d.data()).filter((p) => p.uid !== userId);
-
-          if (otherParticipants.length > 0) {
-            targetPeerId = otherParticipants[0].uid;
-            targetPeerName = otherParticipants[0].name || "Participant";
-          }
         }
       }
 
@@ -252,20 +234,8 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
       const inviteId = `${roomId}_${userId}_${targetPeerId}_${Date.now()}`;
       currentInviteIdRef.current = inviteId;
 
-      const pc = createPeerConnection(inviteId);
-
-      pc.onicecandidate = async (event) => {
-        if (event.candidate) {
-          try {
-            await addDoc(collection(db, "call_invites", inviteId, "callerCandidates"), event.candidate.toJSON());
-          } catch (e) {
-            console.error("Failed to upload caller candidate:", e);
-          }
-        }
-      };
-
-      const offerDescription = await pc.createOffer();
-      await pc.setLocalDescription(offerDescription);
+      // الدخول لغرفة Agora فوراً لتقليل التأخير
+      await initAgoraAndJoin(inviteId);
 
       const invitePayload = {
         roomId,
@@ -273,7 +243,6 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         fromUserName: userName,
         toUserId: targetPeerId,
         status: "ringing",
-        offer: { type: offerDescription.type, sdp: offerDescription.sdp },
         createdAt: new Date().toISOString(),
       };
 
@@ -284,11 +253,8 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         callerId: userId,
         callerName: userName,
         status: "ringing",
-        offer: invitePayload.offer,
         createdAt: invitePayload.createdAt,
       });
-
-      // تم نقل الاستماع لـ Callee Candidates إلى useEffect لضمان الترتيب الصحيح
 
     } catch (e: any) {
       setError("حدث خطأ أثناء الاتفاق.");
@@ -299,47 +265,19 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
   // قبول المكالمة (المُستقبِل)
   const acceptCall = async () => {
     const inviteId = currentInviteIdRef.current;
-    if (!activeCall || !activeCall.offer || !inviteId) {
+    if (!inviteId) {
       setError("لا توجد تفاصيل عرض صالحة للمكالمة.");
       return;
     }
     setError(null);
 
     try {
-      const pc = createPeerConnection(inviteId);
+      // الدخول لغرفة Agora
+      await initAgoraAndJoin(inviteId);
 
-      pc.onicecandidate = async (event) => {
-        if (event.candidate) {
-          try {
-            await addDoc(collection(db, "call_invites", inviteId, "calleeCandidates"), event.candidate.toJSON());
-          } catch (e) {
-            console.error("Failed to upload callee candidate:", e);
-          }
-        }
-      };
-
-      const offerDesc = new RTCSessionDescription(activeCall.offer as RTCSessionDescriptionInit);
-      await pc.setRemoteDescription(offerDesc);
-
-      const answerDescription = await pc.createAnswer();
-      await pc.setLocalDescription(answerDescription);
-
+      // إشعار الطرف الآخر بالقبول
       await updateDoc(doc(db, "call_invites", inviteId), {
         status: "accepted",
-        answer: { type: answerDescription.type, sdp: answerDescription.sdp },
-      });
-
-      const callerCandidatesCollection = collection(db, "call_invites", inviteId, "callerCandidates");
-      unsubscribeCallerCandidatesRef.current = onSnapshot(callerCandidatesCollection, (snapshot) => {
-        snapshot.docChanges().forEach(async (change) => {
-          if (change.type === "added") {
-            try {
-              await pcRef.current?.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-            } catch (e) {
-              console.warn("Failed to add ICE candidate:", e);
-            }
-          }
-        });
       });
 
       setCallState("connected");
@@ -349,6 +287,7 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
     }
   };
 
+  // إنهاء أو رفض المكالمة
   const endCall = async () => {
     const inviteId = currentInviteIdRef.current || activeCall?.id;
     try {
@@ -356,7 +295,8 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         await updateDoc(doc(db, "call_invites", inviteId), { status: "ended" });
       }
     } catch (e) {}
-    cleanupConnection();
+    
+    await cleanupConnection();
   };
 
   return { activeCall, remoteStream, callState, error, startCall, acceptCall, endCall };

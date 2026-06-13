@@ -928,7 +928,7 @@ export function LandingPage({
                     type="button"
                     onClick={handleGoogleSignIn}
                     disabled={authLoading}
-                    className="w-full mt-3 bg-[#0d0d0d] hover:bg-[#1a1a1a] text-[#C5A850] hover:text-[#D4AF37] border border-[#C5A850]/40 font-extrabold py-3.5 rounded-xl transition-all shadow-[0_0_12px_rgba(197,168,80,0.1)] hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] flex items-center justify-center gap-2.5 text-xs cursor-pointer active:scale-[0.98]"
+                    className="w-full mt-3 bg-[#16103b] hover:bg-[#1e1941] text-[#a18cf5] hover:text-white border border-[#241f48] hover:border-[#6c47ff] font-extrabold py-3.5 rounded-xl transition-all shadow-[0_0_12px_rgba(108,71,255,0.05)] hover:shadow-[0_0_15px_rgba(108,71,255,0.15)] flex items-center justify-center gap-2.5 text-xs cursor-pointer active:scale-[0.98]"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4.5 h-4.5">
                       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
