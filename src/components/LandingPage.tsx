@@ -4,8 +4,9 @@ import {
   ShieldAlert, UserPlus, Mail, Lock, LogOut, CheckCircle2, AlertCircle, ArrowRightCircle
 } from "lucide-react";
 import { motion } from "motion/react";
-import { doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, limit, orderBy } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../firebase";
+import { doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, limit, orderBy, where, getDocs } from "firebase/firestore";
+import { db, handleFirestoreError, OperationType, auth } from "../firebase";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { syncUserToSupabase } from "../supabase";
 import { LanguageSelector } from "./LanguageSelector";
 import { LanguageCode } from "../utils/translations";
@@ -356,6 +357,112 @@ export function LandingPage({
     } catch (err) {
       console.error("Password recovery error:", err);
       setErrorMessage(lang === "ar" ? "حدث خطأ أثناء محاولة استعادة الحساب. يرجى مراجعة الاتصال." : "An error occurred during password recovery. Check network.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Handle Google Sign-in
+  const handleGoogleSignIn = async () => {
+    setAuthLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      if (!user.email) {
+        throw new Error("No email returned from Google");
+      }
+
+      // Check if user already exists in Firestore by email
+      let loggedUser: any = null;
+      const q = query(collection(db, "users"), where("email", "==", user.email));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        // User exists!
+        const existingDoc = querySnapshot.docs[0];
+        const userData = existingDoc.data();
+        loggedUser = {
+          nickname: userData.nickname,
+          email: userData.email,
+          avatarColor: userData.avatarColor || AVATAR_COLORS[0].class,
+          status: userData.status || "approved"
+        };
+      } else {
+        // Create a unique clean nickname out of display name or email
+        let cleanNickname = user.displayName 
+          ? user.displayName.replace(/[#\.\/\[\]\$]/g, "").trim() 
+          : user.email.split("@")[0];
+        
+        // Prevent empty nickname
+        if (!cleanNickname) {
+          cleanNickname = "user_" + Math.random().toString(36).substring(2, 7);
+        }
+
+        // Ensure nickname is unique in Firestore
+        let finalNickname = cleanNickname;
+        let suffix = 1;
+        while (suffix < 100) {
+          const checkDoc = await getDoc(doc(db, "users", finalNickname));
+          if (!checkDoc.exists()) {
+            break;
+          }
+          finalNickname = `${cleanNickname}_${suffix}`;
+          suffix++;
+        }
+        
+        // Register new Google User
+        const newUserPayload = {
+          nickname: finalNickname,
+          displayName: finalNickname,
+          email: user.email,
+          phone: "Google Auth",
+          password: "google_login_no_password_" + Math.random().toString(36).substring(2, 10),
+          avatarColor: selectedColor,
+          status: "approved",
+          uid: user.uid,
+          createdAt: new Date().toISOString(),
+          accountType: accountType,
+          privacy: accountType
+        };
+
+        const userDocRef = doc(db, "users", finalNickname);
+        await setDoc(userDocRef, newUserPayload);
+
+        // Mirror sync profile instantly to Supabase
+        try {
+          await syncUserToSupabase(finalNickname, newUserPayload);
+        } catch (err) {
+          console.warn("Supabase mirror failed:", err);
+        }
+
+        loggedUser = {
+          nickname: finalNickname,
+          email: user.email,
+          avatarColor: selectedColor,
+          status: "approved"
+        };
+      }
+
+      // Set session & join room
+      localStorage.setItem("snns_session", JSON.stringify(loggedUser));
+      setSessionUser(loggedUser);
+      setSuccessMessage(lang === "ar" ? "تم تسجيل الدخول بواسطة قوقل بنجاح!" : "Logged in with Google successfully!");
+
+      // Auto-populate active signup avatar details
+      setSelectedColor(loggedUser.avatarColor);
+
+      // Redirect to room
+      setTimeout(() => {
+        onJoinRoom(roomTitle.trim(), loggedUser.nickname, loggedUser.avatarColor);
+      }, 500);
+
+    } catch (err: any) {
+      console.error("Google Authentication Error:", err);
+      setErrorMessage(lang === "ar" ? "فشل الدخول بواسطة قوقل. يرجى التأكد من تشغيل الخدمة." : "Google login failed. Please verify provider configuration.");
     } finally {
       setAuthLoading(false);
     }
@@ -802,6 +909,33 @@ export function LandingPage({
                     </button>
                   </div>
                 </form>
+              )}
+
+              {activeTab !== "recovery" && (
+                <div className="mt-5">
+                  <div className="relative flex py-2.5 items-center">
+                    <div className="flex-grow border-t border-slate-200"></div>
+                    <span className="flex-shrink mx-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                      {lang === "ar" ? "أو الدخول الآمن" : "Or Secure Login"}
+                    </span>
+                    <div className="flex-grow border-t border-slate-200"></div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={authLoading}
+                    className="w-full mt-3 bg-[#0d0d0d] hover:bg-[#1a1a1a] text-[#C5A850] hover:text-[#D4AF37] border border-[#C5A850]/40 font-extrabold py-3.5 rounded-xl transition-all shadow-[0_0_12px_rgba(197,168,80,0.1)] hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] flex items-center justify-center gap-2.5 text-xs cursor-pointer active:scale-[0.98]"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4.5 h-4.5">
+                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                      <path fill="#4285F4" d="M46.5 24c0-1.55-.15-3.24-.47-4.77H24v9.03h12.75c-.55 2.87-2.22 5.29-4.73 6.94l7.36 5.71C43.68 36.8 46.5 31.02 46.5 24z" />
+                      <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z" />
+                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.36-5.71c-2.11 1.41-4.8 2.3-8.53 2.3-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                    </svg>
+                    <span>{lang === "ar" ? "تسجيل الدخول السريع بحساب Google" : "Quick Sign In with Google"}</span>
+                  </button>
+                </div>
               )}
             </div>
           ) : (
