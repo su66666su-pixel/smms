@@ -70,6 +70,8 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         }
       }
     });
+  }, (error) => {
+    console.warn("Error listening to call invites query:", error);
   });
 
   return () => unsub();
@@ -199,6 +201,8 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
         });
         setCallState("ringing-in");
       }
+    }, (error) => {
+      console.warn("Error listening to incoming call invites:", error);
     });
 
     return () => unsubIncoming();
@@ -221,6 +225,8 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
       if (data.status === "accepted" && data.fromUserId === userId && callStateRef.current === "ringing-out") {
         setCallState("connected");
       }
+    }, (error) => {
+      console.warn("Error listening to active call session status:", error);
     });
 
     unsubscribeCallRef.current = unsub;

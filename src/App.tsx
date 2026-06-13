@@ -96,6 +96,8 @@ export default function App() {
       if (snap.exists()) {
         setDbUser(snap.data());
       }
+    }, (error) => {
+      console.warn("Error watching user sync status:", error);
     });
     return () => unsub();
   }, [currentUser]);
