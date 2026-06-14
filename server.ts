@@ -77,7 +77,52 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
+import agoraPkg from "agora-token";
+const { RtcTokenBuilder, RtcRole } = agoraPkg;
+
+// Dynamic Agora Token Generation Route
+app.post("/api/agora/token", (req, res) => {
+  const { channelName, userId } = req.body;
+
+  if (!channelName) {
+    return res.status(400).json({ error: "اسم القناة (channelName) مطلوب." });
+  }
+
+  const appId = process.env.VITE_AGORA_APP_ID;
+  const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+  if (!appId || !appCertificate) {
+    return res.status(500).json({
+      error: "لم يتم تكوين مفتاح أو شهادة Agora بالشكل الصحيح على السيرفر (VITE_AGORA_APP_ID / AGORA_APP_CERTIFICATE).",
+    });
+  }
+
+  try {
+    const role = RtcRole.PUBLISHER;
+    const expirationTimeInSeconds = 3600 * 2; // صلاحية ساعتين
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+    // Generate token with string userAccount
+    const token = RtcTokenBuilder.buildTokenWithUserAccount(
+      appId,
+      appCertificate,
+      channelName,
+      userId || "",
+      role,
+      privilegeExpiredTs,
+      privilegeExpiredTs
+    );
+
+    return res.json({ token });
+  } catch (error: any) {
+    console.error("Agora Token Generation Error:", error);
+    return res.status(500).json({ error: "فشل إنشاء رمز الاتصال الخاص بـ Agora." });
+  }
+});
+
 // Configure Vite or Static Assets serving based on the environment
+
 async function setupServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

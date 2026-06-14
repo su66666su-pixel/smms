@@ -195,9 +195,9 @@ export function ChatPanel({
   const otherParticipants = participants.filter(p => p.uid !== userId);
 
   return (
-    <div className={`flex flex-col h-full bg-white dark:bg-[#151f32] border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden relative shadow-sm transition-colors duration-300 ${isRtl ? "text-right" : "text-left"}`}>
+    <div className={`flex flex-col h-full bg-[#0d0d1b]/95 border border-slate-800/80 rounded-3xl overflow-hidden relative shadow-xl transition-colors duration-300 ${isRtl ? "text-right" : "text-left"}`}>
       {/* Panel Header */}
-      <div className={`bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+      <div className={`bg-[#11112b]/95 border-b border-slate-850 p-4 flex items-center justify-between ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
         <div className="flex items-center gap-2">
           <Bot className="w-5 h-5 text-blue-600 dark:text-indigo-400 font-bold" />
           <div>
@@ -398,7 +398,27 @@ export function ChatPanel({
       </div>
 
       {/* Input Form area */}
-      <div className="bg-slate-50 dark:bg-[#101726]/85 border-t border-slate-200 dark:border-slate-800 p-4">
+      <div className="bg-[#11112b]/95 border-t border-slate-800/80 p-4">
+        {/* Quick Emojis / Reactions bar like in mockup */}
+        <div className="flex items-center justify-between gap-2 border-b border-light/5 border-slate-800/50 pb-2.5 mb-3 font-sans">
+          <span className="text-[10px] font-bold text-slate-400">
+            {isRtl ? "تفاعلات سريعة" : "QUICK REACTION"}
+          </span>
+          <div className="flex gap-1.5">
+            {["👍", "❤️", "👏", "😂", "🔥", "🎉"].map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => onSendMessage(emoji, undefined, false)}
+                className="w-7 h-7 rounded-lg bg-slate-800/30 hover:bg-indigo-650/30 border border-slate-850 hover:border-indigo-500/40 text-xs flex items-center justify-center transition-all cursor-pointer transform hover:scale-110 active:scale-95"
+                title={emoji}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Render drag drop active feedback overlay */}
         {dragActive && (
           <div
@@ -506,7 +526,7 @@ export function ChatPanel({
         <form
           onDragEnter={handleDrag}
           onSubmit={handleTextSubmit}
-          className="flex items-center gap-3"
+          className="flex items-center gap-3 font-sans"
         >
           {/* File select button */}
           <button
@@ -514,10 +534,10 @@ export function ChatPanel({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-805 dark:text-slate-400 shadow-sm transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
+            className="w-11 h-11 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white shadow-sm transition-colors disabled:opacity-40 shrink-0 cursor-pointer flex items-center justify-center"
             title={t("uploadFileOrImage")}
           >
-            <UploadCloud className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <UploadCloud className="w-5 h-5 text-indigo-400" />
           </button>
           <input
             ref={fileInputRef}
@@ -536,10 +556,10 @@ export function ChatPanel({
                 ? t("placeholderWhisper", { name: selectedRecipient.name })
                 : t("placeholderPublic")
             }
-            className={`flex-1 bg-white dark:bg-slate-800 border outline-none rounded-xl px-4 py-3 text-xs text-slate-850 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all font-sans ${isRtl ? "text-right" : "text-left"} ${
+            className={`flex-1 bg-slate-900/50 border outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 transition-all ${isRtl ? "text-right" : "text-left"} ${
               selectedRecipient
-                ? "border-amber-350 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-amber-50/10"
-                : "border-slate-200 dark:border-slate-700 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                ? "border-amber-550 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                : "border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             }`}
           />
 

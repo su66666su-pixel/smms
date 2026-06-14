@@ -43,7 +43,7 @@ export default function App() {
   });
 
   const [theme, setTheme] = useState<"light" | "dark">(() => {
-    return (localStorage.getItem("snns_theme") as "light" | "dark") || "light";
+    return (localStorage.getItem("snns_theme") as "light" | "dark") || "dark";
   });
 
   const toggleTheme = () => {
@@ -941,6 +941,7 @@ export default function App() {
               t={t}
               lang={lang}
               isLocalMock={isLocalMock}
+              participants={participants}
             />
           </div>
 

@@ -140,8 +140,28 @@ export function useSignaling({ roomId, userId, userName, localStream }: UseSigna
   }
   });
 
-      // الانضمام للغرفة برقم المستخدم
-      await client.join(AGORA_APP_ID, channelName, null, userId);
+      // جلب الرمز الديناميكي لمصادقة المكالمة بأمان من السيرفر
+      let token: string | null = null;
+      try {
+        const response = await fetch("/api/agora/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ channelName, userId }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          token = data.token;
+        } else {
+          console.warn("Failed to generate dynamic Agora token, using fallback.");
+        }
+      } catch (err) {
+        console.warn("Network error during Agora token fetch, using fallback:", err);
+      }
+
+      // الانضمام للغرفة برقم المستخدم واستخدام الرمز الديناميكي
+      await client.join(AGORA_APP_ID, channelName, token, userId);
 
       // تحويل فيديو الكاميرا الحالي إلى مسارات Agora وبثها
       if (localStreamRef.current) {

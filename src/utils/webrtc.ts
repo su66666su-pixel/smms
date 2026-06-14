@@ -144,58 +144,41 @@ export async function getMediaStream(username: string, options: { video: boolean
   isMock: boolean;
   errorText?: string;
 }> {
+  const timeoutMs = 3000;
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    // Media access promise
+    const getStreamPromise = navigator.mediaDevices.getUserMedia({
       video: options.video,
       audio: options.audio
     });
+
+    // Timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout starting video source")), timeoutMs);
+    });
+
+    // Race them so we never hang indefinitely or trigger long timeouts
+    const stream = await Promise.race([getStreamPromise, timeoutPromise]);
     
     // Log success as requested in step 9
     console.log("camera started");
     console.log("mic started");
     return { stream, isMock: false };
   } catch (error: any) {
-    console.error("Camera/Mic joint access denied or missing. Activating Canvas emulation:", error);
+    console.error("Camera/Mic access failed or timed out. Activating Canvas emulation:", error);
     
-    let micError = false;
-    let camError = false;
-
-    // Check microphone individually
-    if (options.audio) {
-      try {
-        const streamMic = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamMic.getTracks().forEach((track) => track.stop());
-      } catch (e) {
-        micError = true;
-      }
+    // Determine friendly text based on error message
+    let errorText = "تعذر تشغيل الصوت أو الصورة";
+    const errStr = String(error?.message || error?.name || "").toLowerCase();
+    
+    if (errStr.includes("permission") || errStr.includes("allowed") || errStr.includes("notallowed")) {
+      errorText = "المايك والكاميرا مرفوضة أو غير مدعومة";
+    } else if (errStr.includes("timeout")) {
+      errorText = "انتهت مهلة تشغيل مصادر الفيديو والصوت (بيئة افتراضية)";
     }
 
-    // Check camera individually
-    if (options.video) {
-      try {
-        const streamCam = await navigator.mediaDevices.getUserMedia({ video: true });
-        streamCam.getTracks().forEach((track) => track.stop());
-      } catch (e) {
-        camError = true;
-      }
-    }
-
-    let errorText = "";
-    if (micError && camError) {
-      errorText = "المايك والكاميرا مرفوضة";
-    } else if (micError) {
-      errorText = "المايك مرفوض";
-    } else if (camError) {
-      errorText = "الكاميرا مرفوضة";
-    } else {
-      errorText = "تعذر تشغيل الصوت أو الصورة";
-    }
-
-    // Still log success for whichever actually worked
-    if (!camError && options.video) console.log("camera started");
-    if (!micError && options.audio) console.log("mic started");
-
-    // return mock stream
+    // return mock stream instantly to resume without lag
     const mock = createMockStream(username);
     return { stream: mock, isMock: true, errorText };
   }
