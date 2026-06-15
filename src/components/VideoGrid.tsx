@@ -77,6 +77,44 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
   const isRtl = lang === "ar" || lang === "ur";
 
+  // State to track if video tracks are actually available and enabled
+  const [remoteHasVideo, setRemoteHasVideo] = useState(false);
+  const [localHasVideo, setLocalHasVideo] = useState(false);
+
+  useEffect(() => {
+    if (!remoteStream) {
+      setRemoteHasVideo(false);
+      return;
+    }
+    const checkTracks = () => {
+      const videoTracks = remoteStream.getVideoTracks();
+      const hasActiveVideo = videoTracks.length > 0 && videoTracks.some(t => t.enabled);
+      if (remoteHasVideo !== hasActiveVideo) {
+        setRemoteHasVideo(hasActiveVideo);
+      }
+    };
+    checkTracks();
+    const interval = setInterval(checkTracks, 1000);
+    return () => clearInterval(interval);
+  }, [remoteStream, remoteHasVideo]);
+
+  useEffect(() => {
+    if (!localStream) {
+      setLocalHasVideo(false);
+      return;
+    }
+    const checkTracks = () => {
+      const videoTracks = localStream.getVideoTracks();
+      const hasActiveVideo = videoTracks.length > 0 && videoTracks.some(t => t.enabled);
+      if (localHasVideo !== hasActiveVideo) {
+        setLocalHasVideo(hasActiveVideo);
+      }
+    };
+    checkTracks();
+    const interval = setInterval(checkTracks, 1000);
+    return () => clearInterval(interval);
+  }, [localStream, localHasVideo]);
+
   // Bind remote stream
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
@@ -183,14 +221,14 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-950/20 via-[#070712] to-[#05050f] pointer-events-none" />
 
           {/* Video element rendering */}
-          {callState === "connected" && remoteStream ? (
+          {callState === "connected" && remoteStream && remoteHasVideo ? (
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
               className="absolute inset-0 w-full h-full object-cover z-0"
             />
-          ) : localStream && !isVideoOff ? (
+          ) : localStream && !isVideoOff && localHasVideo ? (
             <video
               ref={localVideoRef}
               autoPlay
@@ -334,7 +372,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
                 }`}
               >
                 {/* Simulated Camera stream or avatar backdrop */}
-                {index === 0 && localStream && !isVideoOff && !isScreenSharing ? (
+                {index === 0 && localStream && !isVideoOff && !isScreenSharing && localHasVideo ? (
                   // If it's first block, we can render miniature camera thumbnail for ultra high fidelity interaction
                   <video
                     ref={miniLocalVideoRef}

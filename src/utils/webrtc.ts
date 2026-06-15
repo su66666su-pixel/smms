@@ -171,6 +171,49 @@ export async function getMediaStream(username: string, options: { video: boolean
     // Determine friendly text based on error message
     let errorText = "تعذر تشغيل الصوت أو الصورة";
     const errStr = String(error?.message || error?.name || "").toLowerCase();
+    const isDeviceMissing = errStr.includes("notfound") || errStr.includes("device") || errStr.includes("overconstrained") || errStr.includes("requested device");
+
+    if (isDeviceMissing && options.video && options.audio) {
+      console.log("One of the devices is missing. Trying a fallback: audio-only (mic) with mock webcam...");
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        console.log("Voice/mic captured successfully! Combining with simulated canvas video stream.");
+        
+        // Generate mock video track
+        const mockStream = createMockStream(username);
+        const videoTrack = mockStream.getVideoTracks()[0];
+        const audioTrack = audioStream.getAudioTracks()[0];
+        
+        const hybridStream = new MediaStream([videoTrack, audioTrack]);
+        // Also copy the cancel/stop handlers to avoid leaks
+        (hybridStream as any).stopMock = () => {
+          if ((mockStream as any).stopMock) (mockStream as any).stopMock();
+          audioTrack.stop();
+        };
+        
+        return { stream: hybridStream, isMock: true, errorText: "تم تشغيل الصوت فقط لعدم توفر كاميرا" };
+      } catch (audioErr) {
+        console.warn("Audio-only fallback failed too, trying video-only with simulated audio...", audioErr);
+        try {
+          const videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          console.log("Webcam captured successfully! Combining with simulated silent audio track.");
+          
+          const mockStream = createMockStream(username);
+          const videoTrack = videoStream.getVideoTracks()[0];
+          const audioTrack = mockStream.getAudioTracks()[0];
+          
+          const hybridStream = new MediaStream([videoTrack, audioTrack]);
+          (hybridStream as any).stopMock = () => {
+            if ((mockStream as any).stopMock) (mockStream as any).stopMock();
+            videoTrack.stop();
+          };
+          
+          return { stream: hybridStream, isMock: true, errorText: "تم تشغيل الكاميرا فقط لعدم توفر مايكروفون" };
+        } catch (videoErr) {
+          console.warn("Video-only fallback failure too. Reverting to full simulator.");
+        }
+      }
+    }
     
     if (errStr.includes("permission") || errStr.includes("allowed") || errStr.includes("notallowed")) {
       errorText = "المايك والكاميرا مرفوضة أو غير مدعومة";
